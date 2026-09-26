@@ -1,0 +1,34 @@
+export interface Rule {
+  then: string;
+  confidence: number;
+  support: number;
+  lift: number;
+  occurrences: number;
+  antecedent_occurrences: number;
+  consequent_occurrences: number;
+}
+export interface SymptomFrequency { count: number; probability: number }
+export interface RulesMetadata {
+  transactions: number;
+  unique_symptoms: number;
+  antecedent_keys: number;
+  rules_saved: number;
+  source_bucket?: string;
+  source_file?: string;
+  rules_generated?: number;
+  minimum_occurrence_count?: number;
+  configuration: {
+    max_antecedent_size: number;
+    min_support?: number;
+    min_confidence?: number;
+    min_lift?: number;
+    min_occurrences?: number;
+    top_k_per_antecedent?: number;
+  };
+}
+export interface RulesOutput {
+  metadata: RulesMetadata;
+  symptom_frequency: Record<string, SymptomFrequency>;
+  rules: Record<string, Rule[]>;
+}
+export type RulesCatalog = Omit<RulesOutput, 'rules'>;
