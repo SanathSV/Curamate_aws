@@ -21,6 +21,7 @@ export interface Candidate {
 export interface InferenceResult {
   paths?: PathSearchResult;
   observed: string[];
+  contexts: string[];
   candidates: Candidate[];
   evaluatedAntecedents: number;
   durationMs: number;

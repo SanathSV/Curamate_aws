@@ -3,6 +3,7 @@ import type { Candidate } from '../../types/inference';
 import type { SymptomFrequency } from '../../types/rules';
 import { displaySymptom } from '../../inference/canonicalize';
 import { formatNumber, percent } from '../../utils/format';
+import { isContextToken, displayContext } from '../../inference/context';
 
 interface Props {
   candidate?: Candidate;
@@ -35,7 +36,7 @@ export function NodeDetails({ candidate, observed, frequency, onSelect, onClose 
       <div className="evidence-section-title"><h4>Strongest evidence</h4><GitBranch size={14} /></div>
       <div className="evidence-path">
         <div className="antecedents">{candidate.bestEvidence.antecedents.map((symptom, index) => <span key={symptom}>
-          {index > 0 && <b className="join-sign">+</b>}<button onClick={() => onSelect(symptom)}>{displaySymptom(symptom)}</button>
+          {index > 0 && <b className="join-sign">+</b>}{isContextToken(symptom) ? <span className="context-badge">{displayContext(symptom)}</span> : <button onClick={() => onSelect(symptom)}>{displaySymptom(symptom)}</button>}
         </span>)}</div>
         <div className="evidence-arrow"><ArrowDown size={16} /><span>{percent(candidate.bestEvidence.rule.confidence)} confidence</span></div>
         <strong>{displaySymptom(candidate.symptom)}</strong>
@@ -54,7 +55,7 @@ export function NodeDetails({ candidate, observed, frequency, onSelect, onClose 
       {candidate.bestEvidence.depth > 1 && <div className="score-formula"><span>How the score is calculated</span><strong>{percent(candidate.bestEvidence.rule.confidence)} × {percent(candidate.bestEvidence.parentScore, 1)} = {percent(candidate.inferenceScore, 1)}</strong><p>Rule confidence × lowest parent score</p></div>}
       <div className="additional-paths"><div className="evidence-section-title"><h4>Additional evidence</h4><span className="count-badge">{candidate.evidence.length - 1}</span></div>
         {candidate.evidence.length === 1 ? <p className="muted small">No additional paths in this exploration.</p> : candidate.evidence.slice(1).map(path => <details key={path.id} className="additional-path">
-          <summary><span>{path.antecedents.map(displaySymptom).join(' + ')}<small>→ {displaySymptom(path.consequent)}</small></span><strong>{percent(path.inferenceScore)}</strong></summary>
+          <summary><span>{path.antecedents.map(token => isContextToken(token) ? displayContext(token) : displaySymptom(token)).join(' + ')}<small>→ {displaySymptom(path.consequent)}</small></span><strong>{percent(path.inferenceScore)}</strong></summary>
           <p>Direct confidence {percent(path.rule.confidence)} · Support {percent(path.rule.support, 1)} · Lift {path.rule.lift.toFixed(2)}× · {formatNumber(path.rule.occurrences)} occurrences</p>
         </details>)}
       </div>

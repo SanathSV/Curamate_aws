@@ -2,7 +2,7 @@ import type { RulesOutput } from '../types/rules';
 import type { InferenceOptions, InferenceResult } from '../types/inference';
 export type WorkerRequest =
   | { type: 'initialize'; data: RulesOutput }
-  | { type: 'infer'; id: number; observed: string[]; options: InferenceOptions }
+  | { type: 'infer'; id: number; observations: string[]; contexts: string[]; options: InferenceOptions }
   | { type: 'cancel' };
 export type WorkerResponse =
   | { type: 'ready' }

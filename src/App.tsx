@@ -12,6 +12,8 @@ import { InferenceResults } from './components/results/InferenceResults';
 import { SymptomPaths } from './components/results/SymptomPaths';
 import { SymptomComparison } from './components/results/SymptomComparison';
 import { Methodology } from './components/Methodology';
+import { PatientContext } from './components/PatientContext';
+import { displayContext, isContextToken } from './inference/context';
 import { DEFAULT_OPTIONS } from './types/inference';
 import type { InferenceOptions } from './types/inference';
 import type { GraphHandle } from './types/graph';
@@ -24,6 +26,7 @@ export default function App() {
   const inference = useInference(rules.data);
   const { theme, toggleTheme } = useTheme();
   const [observed, setObserved] = useState<string[]>([]);
+  const [contexts, setContexts] = useState<string[]>([]);
   const [options, setOptions] = useState<InferenceOptions>({ ...DEFAULT_OPTIONS });
   const [selected, setSelected] = useState<string | null>(null);
   const [visibleDepth, setVisibleDepth] = useState(3);
@@ -40,7 +43,7 @@ export default function App() {
   const selectedCandidate = useMemo(() => candidates.find(candidate => candidate.symptom === selected), [candidates, selected]);
   const graphObserved = result?.observed ?? observed;
   const selectedObserved = selected && graphObserved.includes(selected) ? selected : undefined;
-  const dirty = !!result && (canonicalKey(observed) !== canonicalKey(result.observed) || JSON.stringify(options) !== JSON.stringify(result.options));
+  const dirty = !!result && (canonicalKey(observed) !== canonicalKey(result.observed) || canonicalKey(contexts) !== canonicalKey(result.contexts) || JSON.stringify(options) !== JSON.stringify(result.options));
   const highestDepth = result?.options.maxDepth ?? options.maxDepth;
   const visibleCount = candidates.filter(candidate => candidate.depth <= visibleDepth && candidate.inferenceScore >= viewScore).length;
   const suggested = useMemo(() => rules.trie?.search('', 4, new Set(observed)) ?? [], [rules.trie, observed]);
@@ -48,7 +51,7 @@ export default function App() {
     if (rules.loading || !inference.ready || !observed.length) return;
     setSelected(null); setVisibleDepth(options.maxDepth); setViewScore(0);
     if (settings.current) settings.current.open = false;
-    inference.run(observed, options);
+    inference.run(observed, options, contexts);
   };
   const selectSymptom = useCallback((symptom: string) => {
     const candidate = candidates.find(item => item.symptom === symptom);
@@ -60,12 +63,14 @@ export default function App() {
   }, [candidates]);
   const clear = () => {
     inference.clear(); setObserved([]); setSelected(null); setVisibleDepth(options.maxDepth); setViewScore(0);
+    setContexts([]);
     setComparisonSession(value => value + 1);
     thread.current?.scrollTo({ top: 0 });
   };
   useEffect(() => { setSelected(null); }, [result]);
   useEffect(() => {
     if (rules.data) setObserved(previous => previous.filter(symptom => Object.hasOwn(rules.data!.symptom_frequency, symptom)));
+    if (rules.data) setContexts(previous => previous.filter(token => Object.hasOwn(rules.data!.context_frequency ?? {}, token)));
     setSelected(null);
   }, [rules.data]);
   useEffect(() => {
@@ -138,7 +143,8 @@ export default function App() {
               <div className="graph-bottom"><GraphControls graph={graph} disabled={!graphObserved.length} zoom={zoom} /><span className="graph-hint">{result ? visibleCount + ' candidates' : 'Scroll to zoom · drag to pan'}</span></div>
             </div>
             <div className="graph-legend"><span><i className="legend-dot observed-dot" />Observed</span><span><i className="legend-dot latent-dot" />Candidate</span><span>Link labels = direct confidence</span>{(result?.options.associationMode ?? options.associationMode) !== 'pairwise' && <span><i className="legend-diamond" />Joint rule</span>}{selected && <button className="text-button" onClick={() => setSelected(null)}><X size={12} />Clear selection</button>}{!selected && <span className="graph-selection-hint">Select a node for evidence</span>}</div>
-            {graphExpanded && selectedCandidate && <div className="expanded-evidence"><strong>{displaySymptom(selectedCandidate.symptom)}</strong><span>Score {percent(selectedCandidate.inferenceScore)} · {selectedCandidate.bestEvidence.antecedents.map(displaySymptom).join(' + ')} → {displaySymptom(selectedCandidate.symptom)}</span><span>Direct confidence {percent(selectedCandidate.bestEvidence.rule.confidence, 1)} · {formatNumber(selectedCandidate.bestEvidence.rule.occurrences)} / {formatNumber(selectedCandidate.bestEvidence.rule.antecedent_occurrences)} records</span></div>}
+            {(result?.contexts ?? contexts).length > 0 && <div className="graph-context"><span>Patient context{(result?.options.associationMode ?? options.associationMode) === 'pairwise' ? ' · not used in single-symptom mode' : ''}</span><div className="context-badges">{(result?.contexts ?? contexts).map(token => <span className="context-badge" key={token}>{displayContext(token)}</span>)}</div></div>}
+            {graphExpanded && selectedCandidate && <div className="expanded-evidence"><strong>{displaySymptom(selectedCandidate.symptom)}</strong><span>Score {percent(selectedCandidate.inferenceScore)} · {selectedCandidate.bestEvidence.antecedents.map(token => isContextToken(token) ? displayContext(token) : displaySymptom(token)).join(' + ')} → {displaySymptom(selectedCandidate.symptom)}</span><span>Direct confidence {percent(selectedCandidate.bestEvidence.rule.confidence, 1)} · {formatNumber(selectedCandidate.bestEvidence.rule.occurrences)} / {formatNumber(selectedCandidate.bestEvidence.rule.antecedent_occurrences)} records</span></div>}
           </section>
           {dirty && <div className="stale-results" role="status"><span>Your observations or settings have changed.</span><button className="text-button" onClick={run} disabled={!observed.length || inference.running || rules.loading}>Update network <RotateCcw size={13} /></button></div>}
           {rules.data && rules.trie && <SymptomComparison key={comparisonSession} data={rules.data} trie={rules.trie} observed={observed} />}
@@ -154,6 +160,7 @@ export default function App() {
         {!result && suggested.length > 0 && <div className="suggested-symptoms"><span>Quick add</span>{suggested.map(symptom => <button key={symptom} disabled={inference.running} onClick={() => changeObserved([...observed, symptom])}><Plus size={12} />{displaySymptom(symptom)}</button>)}</div>}
         <div className="composer">
           {rules.loading ? <div className="composer-loading"><LoaderCircle className="spin" size={18} /><span>Loading available symptoms…</span></div> : <SymptomMultiSelect trie={rules.trie} frequency={rules.data?.symptom_frequency ?? EMPTY_FREQUENCY} selected={observed} onChange={changeObserved} disabled={!rules.data || inference.running} />}
+          {rules.data?.context_frequency && <PatientContext frequency={rules.data.context_frequency} contexts={contexts} onChange={setContexts} disabled={rules.loading || inference.running} combined={options.associationMode !== 'pairwise'} />}
           <div className="composer-actions">
             <details className="settings-menu" ref={settings} onKeyDown={event => { if (event.key === 'Escape' && settings.current) settings.current.open = false; }}><summary><SlidersHorizontal size={16} />Settings<ChevronDown size={12} /></summary><div className="settings-popover"><InferenceControls options={options} onChange={setOptions} disabled={!rules.data || inference.running} /></div></details>
             <span className="settings-summary">{percent(options.minScore)} minimum <span>·</span> depth {options.maxDepth}</span>

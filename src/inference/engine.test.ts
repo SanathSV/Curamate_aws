@@ -1,9 +1,67 @@
 import { describe, expect, it, vi } from 'vitest';
 import { InMemoryRuleSource } from '../api/rulesApi';
-import { dataset, rule } from '../test/fixtures';
+import { contextDataset, dataset, rule } from '../test/fixtures';
 import { DEFAULT_OPTIONS as UI_DEFAULT_OPTIONS } from '../types/inference';
 import { infer } from './engine';
 const DEFAULT_OPTIONS = { ...UI_DEFAULT_OPTIONS, associationMode: 'combined' as const };
+
+describe('fixed patient context', () => {
+  it.each(['gender:male', 'history:asthma'])('looks up a symptom conditioned on %s only when selected', async context => {
+    const source = new InMemoryRuleSource(contextDataset([[['cough', context], [rule('wheeze', .9)]]]));
+    expect((await infer(source, ['cough'], DEFAULT_OPTIONS)).candidates).toEqual([]);
+    const result = await infer(source, ['cough'], DEFAULT_OPTIONS, undefined, [context]);
+    expect(result.observed).toEqual(['cough']);
+    expect(result.contexts).toEqual([context]);
+    expect(result.candidates.map(candidate => candidate.symptom)).toEqual(['wheeze']);
+    expect(result.candidates[0].bestEvidence.parentScore).toBe(1);
+  });
+  it('looks up the requested symptom and context subsets with canonical sorting', async () => {
+    const input = contextDataset([[['cough', 'fever', 'gender:male', 'history:asthma'], [rule('wheeze', .2, { occurrences: 90, antecedent_occurrences: 100 })]]]);
+    input.metadata.configuration.max_antecedent_size = 2;
+    const source = new InMemoryRuleSource(input);
+    const lookup = vi.spyOn(source, 'getRules');
+    const result = await infer(source, ['fever', 'cough'], { ...DEFAULT_OPTIONS, maxDepth: 1 }, undefined, ['history:asthma', 'Gender:Male']);
+    const keys = lookup.mock.calls.flatMap(([batch]) => batch);
+    expect(keys).toEqual(expect.arrayContaining(['cough', 'fever', 'cough|fever', 'cough|gender:male', 'fever|history:asthma', 'cough|fever|gender:male', 'cough|fever|history:asthma', 'cough|fever|gender:male|history:asthma']));
+    expect(result.candidates[0].inferenceScore).toBe(.9);
+    expect(result.candidates[0].bestEvidence.antecedents).toEqual(['cough', 'fever', 'gender:male', 'history:asthma']);
+    expect(keys).not.toContain('gender:male');
+    expect(keys).toHaveLength(new Set(keys).size);
+  });
+  it('keeps contexts at score 1 across recursive propagation and never infers them', async () => {
+    const input = contextDataset([
+      [['a', 'gender:male'], [rule('b', .9), rule('history:asthma', 1)]],
+      [['b', 'history:asthma'], [rule('c', .8), rule('gender:male', 1)]],
+    ]);
+    const result = await infer(new InMemoryRuleSource(input), ['a'], DEFAULT_OPTIONS, undefined, ['gender:male', 'history:asthma']);
+    expect(result.candidates.map(candidate => candidate.symptom)).toEqual(['b', 'c']);
+    expect(result.candidates[1].inferenceScore).toBeCloseTo(.72);
+    expect(result.candidates[1].bestEvidence.parentScore).toBe(.9);
+    expect(result.candidates[1].bestEvidence.lineage).toEqual(['a', 'b', 'c']);
+    expect(result.contexts).toEqual(['gender:male', 'history:asthma']);
+  });
+  it('preserves pairwise behavior even when context is selected', async () => {
+    const source = new InMemoryRuleSource(contextDataset([[['a'], [rule('b', .8)]], [['a', 'gender:male'], [rule('c', .99)]]]));
+    const lookup = vi.spyOn(source, 'getRules');
+    const result = await infer(source, ['a'], UI_DEFAULT_OPTIONS, undefined, ['gender:male']);
+    expect(result.candidates.map(candidate => candidate.symptom)).toEqual(['b']);
+    expect(lookup.mock.calls.flatMap(([keys]) => keys).every(key => !key.includes('gender:'))).toBe(true);
+  });
+  it('bounds context subsets independently of symptom size', async () => {
+    const input = contextDataset([[['a', 'gender:male'], [rule('b', .8)]], [['a', 'gender:male', 'history:asthma'], [rule('c', .99)]]]);
+    input.metadata.configuration.max_context_features = 1;
+    const result = await infer(new InMemoryRuleSource(input), ['a'], DEFAULT_OPTIONS, undefined, ['gender:male', 'history:asthma']);
+    expect(result.candidates.map(candidate => candidate.symptom)).toEqual(['b']);
+  });
+  it('rejects context masquerading as symptoms, unknown context, and conflicting gender selections', async () => {
+    const input = contextDataset([[['a', 'gender:male', 'gender:female'], [rule('b', .8)]]]);
+    const source = new InMemoryRuleSource(input);
+    await expect(infer(source, ['gender:male'], DEFAULT_OPTIONS)).rejects.toThrow('symptoms');
+    await expect(infer(source, ['a'], DEFAULT_OPTIONS, undefined, ['history:unknown'])).rejects.toThrow('context catalog');
+    await expect(infer(source, ['a'], DEFAULT_OPTIONS, undefined, ['gender:male', 'gender:female'])).rejects.toThrow('one gender');
+    expect((await infer(source, [], DEFAULT_OPTIONS, undefined, ['gender:male'])).candidates).toEqual([]);
+  });
+});
 
 describe('latent symptom inference', () => {
   it('discovers B from the joint A|C antecedent', async () => {

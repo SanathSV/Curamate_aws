@@ -31,10 +31,10 @@ export function useInference(data: RulesOutput | null) {
     instance.postMessage({ type: 'initialize', data } satisfies WorkerRequest);
     return () => { instance.terminate(); worker.current = null; };
   }, [data]);
-  const run = useCallback((observed: string[], options: InferenceOptions) => {
+  const run = useCallback((observations: string[], options: InferenceOptions, contexts: string[] = []) => {
     if (!worker.current || !ready) return;
     setRunning(true); setError(null);
-    worker.current.postMessage({ type: 'infer', id: ++currentId.current, observed, options } satisfies WorkerRequest);
+    worker.current.postMessage({ type: 'infer', id: ++currentId.current, observations, contexts, options } satisfies WorkerRequest);
   }, [ready]);
   const clear = useCallback(() => {
     currentId.current++;

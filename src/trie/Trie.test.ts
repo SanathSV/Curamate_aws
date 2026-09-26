@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { Trie } from './Trie';
 import { createSymptomTrie } from './symptomTrie';
+import { contextDataset, rule } from '../test/fixtures';
+import { parseRulesOutput } from '../api/rulesApi';
 describe('Trie prefix lookup', () => {
+  it('indexes only symptoms when patient context is present', () => {
+    const data = parseRulesOutput(contextDataset([[['cough', 'gender:male', 'history:asthma'], [rule('wheeze', .9)]]]));
+    const index = createSymptomTrie(data.symptom_frequency);
+    expect(index.search('', 100)).toEqual(['cough', 'wheeze']);
+    expect(index.search('gender')).toEqual([]);
+    expect(index.search('history')).toEqual([]);
+  });
   function trie() {
     const result = new Trie();
     result.insert(' Fatigue ', 120000);

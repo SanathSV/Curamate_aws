@@ -2,6 +2,7 @@ import {
   canonicalKey,
   normalizeSymptom,
 } from '../inference/canonicalize';
+import { isContextToken } from '../inference/context';
 
 import type {
   Rule,
@@ -391,6 +392,8 @@ export function parseRulesOutput(
     true,
   );
 
+  const maxContextFeatures = optionalNumber(config.max_context_features, 'max_context_features', true);
+
 
   if (
     transactions <= 0 ||
@@ -421,6 +424,8 @@ export function parseRulesOutput(
 
       max_antecedent_size:
         maxAntecedentSize,
+
+      ...(maxContextFeatures === undefined ? {} : { max_context_features: maxContextFeatures }),
 
     },
 
@@ -644,6 +649,10 @@ export function parseRulesOutput(
       'symptom_frequency',
     );
 
+    if (isContextToken(symptom)) {
+      throw new Error('Malformed dataset: context tokens must not appear in symptom_frequency.');
+    }
+
 
     if (
       Object.hasOwn(
@@ -697,6 +706,22 @@ export function parseRulesOutput(
 
   }
 
+
+  const contextFrequency: Record<string, SymptomFrequency> = Object.create(null);
+  if (data.context_frequency !== undefined) {
+    for (const [raw, value] of Object.entries(object(data.context_frequency, 'context_frequency'))) {
+      const context = name(raw, 'context_frequency');
+      if (!isContextToken(context) || !context.slice(context.indexOf(':') + 1).trim()) {
+        throw new Error(`Malformed dataset: invalid context token ${context}.`);
+      }
+      if (Object.hasOwn(contextFrequency, context)) throw new Error(`Malformed dataset: duplicate normalized context ${context}.`);
+      const entry = object(value, context);
+      contextFrequency[context] = {
+        count: number(entry.count, 'context count', true, transactions),
+        probability: number(entry.probability, 'context probability', false, 1),
+      };
+    }
+  }
 
   /* ==========================================================
    * RULES
@@ -758,15 +783,8 @@ export function parseRulesOutput(
      * --------------------------------------------------------
      */
 
-    if (
-      key
-        .split('|')
-        .length
-      >
-      metadata
-        .configuration
-        .max_antecedent_size
-    ) {
+    const tokens = key.split('|');
+    if (tokens.filter(token => !isContextToken(token)).length > maxAntecedentSize) {
 
       throw new Error(
         'Malformed dataset: a rule exceeds the maximum antecedent size.',
@@ -774,26 +792,22 @@ export function parseRulesOutput(
 
     }
 
+    if (tokens.filter(isContextToken).length > (maxContextFeatures ?? Object.keys(contextFrequency).length)) {
+      throw new Error('Malformed dataset: a rule exceeds max_context_features.');
+    }
+
 
     /* --------------------------------------------------------
-     * Every antecedent must exist in symptom catalog
+     * Antecedent contexts and symptoms have separate catalogs.
      * --------------------------------------------------------
      */
 
-    if (
-      parts.some(
-        part =>
-          !Object.hasOwn(
-            frequency,
-            part,
-          ),
-      )
-    ) {
-
-      throw new Error(
-        'Malformed dataset: a rule antecedent is missing from the symptom catalog.',
-      );
-
+    for (const part of parts) {
+      if (isContextToken(part)) {
+        if (!Object.hasOwn(contextFrequency, part)) throw new Error(`Malformed dataset: unknown context token ${part} in rule antecedent.`);
+      } else if (!Object.hasOwn(frequency, part)) {
+        throw new Error('Malformed dataset: a rule antecedent is missing from the symptom catalog.');
+      }
     }
 
 
@@ -834,6 +848,7 @@ export function parseRulesOutput(
 
 
           if (
+            isContextToken(consequent) ||
             !Object.hasOwn(
               frequency,
               consequent,
@@ -1011,6 +1026,8 @@ export function parseRulesOutput(
 
     symptom_frequency:
       frequency,
+
+    ...(data.context_frequency === undefined ? {} : { context_frequency: contextFrequency }),
 
     rules,
 
@@ -1371,6 +1388,8 @@ export function reloadRules(): Promise<RulesOutput> {
 
 export interface RuleSource {
 
+  hasContext(token: string): boolean;
+
   getMetadata():
     RulesMetadata;
 
@@ -1407,6 +1426,10 @@ implements RuleSource {
       RulesOutput,
   ) {}
 
+  hasContext(token: string): boolean {
+    return isContextToken(token) && Object.hasOwn(this.data.context_frequency ?? {}, normalizeSymptom(token));
+  }
+
 
   getMetadata():
     RulesMetadata {
@@ -1426,7 +1449,7 @@ implements RuleSource {
       );
 
 
-    if (!normalized) {
+    if (!normalized || isContextToken(normalized)) {
 
       return false;
 

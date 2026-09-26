@@ -18,3 +18,13 @@ export function* combinations(symptoms: string[], maxSize: number, frontier?: Re
     if (maxSize > 0) yield* visit(0, [items[pivot]]);
   }
 }
+
+/** Context is a fixed adjunct; each lookup still has a new/changed symptom. */
+export function* antecedentCombinations(symptoms: string[], maxSymptoms: number, frontier: ReadonlySet<string>, contexts: string[], maxContexts: number): Generator<string> {
+  for (const symptomKey of combinations(symptoms, maxSymptoms, frontier)) {
+    yield symptomKey;
+    for (const contextKey of combinations(contexts, maxContexts)) {
+      yield canonicalKey([...symptomKey.split('|'), ...contextKey.split('|')]);
+    }
+  }
+}

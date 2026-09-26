@@ -181,3 +181,37 @@ button { color: inherit; }
 .comparison-unavailable { color: var(--muted); font-size: 12px; }
 .comparison-increase { color: var(--accent); }
 @media (max-width: 730px) { .comparison-section { padding: 16px; }.comparison-inputs { grid-template-columns: 1fr; }.comparison-input .search-field input { font-size: 16px; } }
+
+/* Patient context remains separate from symptom selectors and graph circles. */
+.patient-context { padding: 12px 0; border-top: 1px solid var(--border); margin-top: 7px; }
+.patient-context h3 { font-size: 14px; font-weight: 500; margin-bottom: 10px; }
+.patient-context h3>span { font-size: 11px; color: var(--subtle); margin-left: 7px; }
+.context-fields { display: grid; grid-template-columns: minmax(125px, 190px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.context-field { min-width: 0; }
+.context-field>label { font-size: 13px; color: var(--muted); }
+.context-gender-select { position: relative; margin: 8px 0 0; }
+.context-gender-select select { appearance: none; width: 100%; padding: 11px 34px 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--page); color: var(--text); font-size: 13px; cursor: pointer; }
+.context-gender-select>svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.history-picker { position: relative; border: 1px solid var(--border); border-radius: 12px; background: var(--page); margin-top: 8px; }
+.history-picker:focus-within { border-color: var(--accent); }
+.history-search { display: flex; align-items: center; gap: 9px; padding: 11px 12px; color: var(--subtle); }
+.history-search input { width: 100%; min-width: 0; background: transparent; border: 0; outline: none; color: var(--text); font-size: 13px; }
+.history-search input::placeholder { color: var(--subtle); }
+.history-search .icon-button { width: 20px; height: 20px; flex-shrink: 0; }
+.history-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 10px 0; max-height: 108px; overflow-y: auto; }
+.history-chips>span { display: inline-flex; align-items: center; gap: 5px; padding: 4px 6px 4px 9px; border: 1px solid var(--border); background: var(--surface); border-radius: 7px; color: var(--text); font-size: 12px; }
+.history-chips button { display: grid; place-items: center; border: 0; border-radius: 4px; background: transparent; color: var(--muted); padding: 4px; }
+.history-chips button:hover { background: var(--hover); }
+.history-suggestions { position: absolute; bottom: calc(100% + 8px); left: 0; right: 0; z-index: 30; border: 1px solid var(--border); border-radius: 12px; background: var(--raised); box-shadow: var(--shadow); padding: 8px 5px 5px; }
+.history-caption { display: block; padding: 3px 7px 7px; color: var(--subtle); font-size: 11px; }
+.history-suggestions ul { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow-y: auto; }
+.history-suggestions li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 7px; border-radius: 6px; color: var(--text); font-size: 13px; cursor: pointer; }
+.history-suggestions li.active { background: var(--hover); }
+.history-suggestions li>svg { color: var(--subtle); flex-shrink: 0; }
+.history-empty { padding: 8px 7px 12px; font-size: 12px; color: var(--muted); line-height: 1.7; }
+@media (max-width: 730px) { .history-search input, .context-gender-select select { font-size: 16px; }.context-fields { grid-template-columns: minmax(105px, .8fr) minmax(0, 1.4fr); gap: 10px; }.history-chips { max-height: 70px; } }
+.context-badges { display: flex; flex-wrap: wrap; gap: 7px; }
+.context-badge { display: inline-block; padding: 4px 7px; background: var(--page); color: var(--muted); border: 1px solid var(--border); border-radius: 5px; font-size: 12px; }
+.patient-context>.field-hint { margin: 13px 0 0; }
+.graph-context { padding: 11px 18px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); flex-shrink: 0; max-height: 135px; overflow-y: auto; }
+.graph-context>.context-badges { margin-top: 8px; }

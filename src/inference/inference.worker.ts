@@ -16,8 +16,8 @@ worker.onmessage = async ({ data }: MessageEvent<WorkerRequest>) => {
   try {
     if (!source) throw new Error('The dataset is still loading.');
     const started = performance.now();
-    const result = await infer(source, data.observed, data.options, controller.signal);
-    result.paths = await findSymptomPaths(source, data.observed, data.options, controller.signal);
+    const result = await infer(source, data.observations, data.options, controller.signal, data.contexts);
+    result.paths = await findSymptomPaths(source, data.observations, data.options, controller.signal);
     result.durationMs = performance.now() - started;
     if (!controller.signal.aborted) send({ type: 'result', id: data.id, result });
   } catch (error) {

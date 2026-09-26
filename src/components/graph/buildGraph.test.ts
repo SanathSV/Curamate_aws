@@ -1,10 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { dataset, rule } from '../../test/fixtures';
+import { contextDataset, dataset, rule } from '../../test/fixtures';
 import { InMemoryRuleSource } from '../../api/rulesApi';
 import { infer } from '../../inference/engine';
 import { DEFAULT_OPTIONS } from '../../types/inference';
 import { buildGraph } from './buildGraph';
 describe('hypergraph construction', () => {
+  it.each([['a'], ['a', 'c']])('shows context-conditioned evidence without context symptom circles for %s', async (...observations: string[]) => {
+    const input = contextDataset([[[...observations, 'gender:male', 'history:asthma'], [rule('b', .9)]]]);
+    const result = await infer(new InMemoryRuleSource(input), observations, { ...DEFAULT_OPTIONS, associationMode: 'combined' }, undefined, ['gender:male', 'history:asthma']);
+    const elements = buildGraph(result.observed, result.candidates, 3, 0);
+    const nodes = elements.filter(element => element.data.kind === 'symptom');
+    expect(nodes.map(node => node.data.symptom).sort()).toEqual([...observations, 'b'].sort());
+    expect(elements.some(element => String(element.data.label).includes('Gender: Male'))).toBe(true);
+    const ids = new Set(elements.filter(element => !element.data.source).map(element => element.data.id));
+    elements.filter(element => element.data.source).forEach(edge => {
+      expect(ids.has(edge.data.source)).toBe(true);
+      expect(ids.has(edge.data.target)).toBe(true);
+    });
+  });
   it('joins all antecedents at one rule diamond instead of independent symptom edges', async () => {
     const result = await infer(new InMemoryRuleSource(dataset([[['a', 'c'], [rule('b', .9)]]])), ['a', 'c'], { ...DEFAULT_OPTIONS, associationMode: 'combined' });
     const elements = buildGraph(result.observed, result.candidates, 3, 0);

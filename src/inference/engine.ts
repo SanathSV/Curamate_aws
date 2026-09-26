@@ -1,7 +1,8 @@
 import type { RuleSource } from '../api/rulesApi';
 import type { Rule } from '../types/rules';
 import { canonicalKey } from './canonicalize';
-import { combinations } from './combinations';
+import { antecedentCombinations } from './combinations';
+import { isContextToken } from './context';
 import { compareCandidates, compareEvidence, conditionalConfidence, propagatedScore } from './scoring';
 import type { Candidate, EvidencePath, InferenceOptions, InferenceResult } from '../types/inference';
 
@@ -9,7 +10,7 @@ type Known = { score: number; pathDepth: number; lineage: string[] };
 const MAX_COMBINATIONS = 250000;
 const BATCH_SIZE = 256;
 
-export async function infer(source: RuleSource, symptoms: string[], options: InferenceOptions, signal?: AbortSignal): Promise<InferenceResult> {
+export async function infer(source: RuleSource, symptoms: string[], options: InferenceOptions, signal?: AbortSignal, contexts: string[] = []): Promise<InferenceResult> {
   const started = performance.now();
   if (!Number.isFinite(options.minScore) || options.minScore < 0 || options.minScore > 1 ||
     !Number.isInteger(options.maxDepth) || options.maxDepth < 1 || options.maxDepth > 6 ||
@@ -20,9 +21,15 @@ export async function infer(source: RuleSource, symptoms: string[], options: Inf
   const maxAntecedentSize = options.associationMode === 'pairwise' ? 1 : metadata.configuration.max_antecedent_size;
   const key = canonicalKey(symptoms);
   const observed = key ? key.split('|') : [];
-  if (observed.some(symptom => !source.hasSymptom(symptom))) throw new Error('Select symptoms from the dataset catalog.');
+  if (observed.some(symptom => isContextToken(symptom) || !source.hasSymptom(symptom))) throw new Error('Select symptoms from the dataset catalog.');
+  const contextKey = canonicalKey(contexts);
+  const selectedContexts = contextKey ? contextKey.split('|') : [];
+  if (selectedContexts.some(token => !isContextToken(token) || !source.hasContext(token))) throw new Error('Select patient context from the context catalog.');
+  if (selectedContexts.filter(token => token.startsWith('gender:')).length > 1) throw new Error('Select at most one gender context.');
+  const activeContexts = options.associationMode === 'pairwise' ? [] : selectedContexts;
   const observedSet = new Set(observed);
   const known = new Map<string, Known>(observed.map(symptom => [symptom, { score: 1, pathDepth: 0, lineage: [symptom] }]));
+  activeContexts.forEach(token => known.set(token, { score: 1, pathDepth: 0, lineage: [] }));
   const accepted = new Map<string, Candidate>();
   const evidencePool = new Map<string, Map<string, EvidencePath>>();
   const evaluatedAntecedents = new Set<string>();
@@ -54,7 +61,8 @@ export async function infer(source: RuleSource, symptoms: string[], options: Inf
         signatures.set(antecedentKey, signature);
         evaluatedAntecedents.add(antecedentKey);
         (ruleCache.get(antecedentKey) ?? []).forEach((storedRule, index) => {
-          const rule = options.associationMode === 'pairwise'
+          if (isContextToken(storedRule.then) || !source.hasSymptom(storedRule.then)) return;
+          const rule = options.associationMode === 'pairwise' || antecedents.some(isContextToken)
             ? { ...storedRule, confidence: conditionalConfidence(storedRule.occurrences, storedRule.antecedent_occurrences) }
             : storedRule;
           if (rule.confidence === 0 || rule.occurrences === 0) return;
@@ -76,7 +84,8 @@ export async function infer(source: RuleSource, symptoms: string[], options: Inf
       }
     };
     let batch: string[] = [];
-    for (const antecedent of combinations([...known.keys()], maxAntecedentSize, frontier)) {
+    for (const antecedent of antecedentCombinations([...known.keys()].filter(token => !isContextToken(token)), maxAntecedentSize, frontier,
+      activeContexts, metadata.configuration.max_context_features ?? activeContexts.length)) {
       if (++visited > MAX_COMBINATIONS) { truncated = true; break; }
       batch.push(antecedent);
       if (batch.length === BATCH_SIZE) {
@@ -116,7 +125,7 @@ export async function infer(source: RuleSource, symptoms: string[], options: Inf
     if (truncated) break;
   }
   return {
-    observed, candidates: [...accepted.values()].sort((a, b) => a.depth - b.depth || compareCandidates(a, b)),
+    observed, contexts: selectedContexts, candidates: [...accepted.values()].sort((a, b) => a.depth - b.depth || compareCandidates(a, b)),
     evaluatedAntecedents: evaluatedAntecedents.size, durationMs: performance.now() - started,
     depthsExplored, truncated, options: { ...options },
   };

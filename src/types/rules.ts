@@ -19,6 +19,7 @@ export interface RulesMetadata {
   minimum_occurrence_count?: number;
   configuration: {
     max_antecedent_size: number;
+    max_context_features?: number;
     min_support?: number;
     min_confidence?: number;
     min_lift?: number;
@@ -29,6 +30,7 @@ export interface RulesMetadata {
 export interface RulesOutput {
   metadata: RulesMetadata;
   symptom_frequency: Record<string, SymptomFrequency>;
+  context_frequency?: Record<string, SymptomFrequency>;
   rules: Record<string, Rule[]>;
 }
 export type RulesCatalog = Omit<RulesOutput, 'rules'>;

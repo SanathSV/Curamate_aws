@@ -2,6 +2,7 @@ import type { ElementDefinition } from 'cytoscape';
 import type { Candidate } from '../../types/inference';
 import { displaySymptom } from '../../inference/canonicalize';
 import { percent } from '../../utils/format';
+import { isContextToken, displayContext } from '../../inference/context';
 
 export const symptomId = (symptom: string): string => 'symptom:' + symptom;
 export function buildGraph(observed: string[], candidates: Candidate[], maxDepth: number, minScore: number): ElementDefinition[] {
@@ -23,25 +24,28 @@ export function buildGraph(observed: string[], candidates: Candidate[], maxDepth
         label: displaySymptom(candidate.symptom) + '\n' + percent(candidate.inferenceScore) + ' · depth ' + candidate.depth, depth: candidate.depth },
       classes: 'symptom latent depth-' + Math.min(candidate.depth, 3), position: positions.get(candidate.symptom),
     });
-    const paths = candidate.evidence.filter(path => path.depth <= maxDepth && path.antecedents.every(name => names.has(name)));
+    const paths = candidate.evidence.filter(path => path.depth <= maxDepth && path.antecedents.every(name => isContextToken(name) || names.has(name)));
     paths.forEach((path, index) => {
+      const symptoms = path.antecedents.filter(token => !isContextToken(token));
+      const contexts = path.antecedents.filter(isContextToken);
+      const label = percent(path.rule.confidence) + (contexts.length ? '\n' + contexts.map(displayContext).join(' · ') : '');
       const target = positions.get(candidate.symptom)!;
       const id = 'rule:' + path.id;
       // A single antecedent is an ordinary directed link. Joint rules still need their shared diamond.
-      if (path.antecedents.length === 1) {
+      if (symptoms.length === 1) {
         elements.push({
-          data: { id, source: symptomId(path.antecedents[0]), target: symptomId(candidate.symptom),
-            symptom: candidate.symptom, evidenceId: path.id, label: percent(path.rule.confidence) },
+          data: { id, source: symptomId(symptoms[0]), target: symptomId(candidate.symptom),
+            symptom: candidate.symptom, evidenceId: path.id, label, contexts },
           classes: 'evidence-edge consequent pairwise' + (path.id === candidate.bestEvidence.id ? '' : ' secondary'),
         });
         return;
       }
       elements.push({
-        data: { id, kind: 'rule', symptom: candidate.symptom, label: percent(path.rule.confidence), evidenceId: path.id },
+        data: { id, kind: 'rule', symptom: candidate.symptom, label, contexts, evidenceId: path.id },
         classes: 'rule' + (path.id === candidate.bestEvidence.id ? ' strongest' : ' secondary'),
         position: { x: target.x - 113 - (index % 2) * 20, y: target.y + (index - (paths.length - 1) / 2) * 42 },
       });
-      path.antecedents.forEach((antecedent, i) => elements.push({
+      symptoms.forEach((antecedent, i) => elements.push({
         data: { id: id + ':in:' + i, source: symptomId(antecedent), target: id },
         classes: path.id === candidate.bestEvidence.id ? 'evidence-edge' : 'evidence-edge secondary',
       }));

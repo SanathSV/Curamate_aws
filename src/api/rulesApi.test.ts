@@ -1,9 +1,68 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { dataset, rule } from '../test/fixtures';
+import { contextDataset, dataset, rule } from '../test/fixtures';
 import { parseRulesOutput } from './rulesApi';
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.resetModules(); });
 describe('dataset validation', () => {
+  it('preserves legacy symptom-only datasets without context metadata', () => {
+    const parsed = parseRulesOutput(dataset([[['a'], [rule('b', .8)]]]));
+    expect(parsed.context_frequency).toBeUndefined();
+    expect(parsed.metadata.configuration.max_context_features).toBeUndefined();
+    expect(parsed.rules.a[0].then).toBe('b');
+  });
+  it('accepts mixed antecedents with independent symptom and context size limits', () => {
+    const input = contextDataset([[['cough', 'fever', 'gender:male', 'history:asthma'], [rule('wheeze', .9)]]]);
+    input.metadata.configuration.max_antecedent_size = 2;
+    input.rules[' Fever | gender:MALE | Cough | HISTORY:ASTHMA '] = input.rules['cough|fever|gender:male|history:asthma'];
+    delete input.rules['cough|fever|gender:male|history:asthma'];
+    const parsed = parseRulesOutput(input);
+    expect(parsed.rules['cough|fever|gender:male|history:asthma'][0].then).toBe('wheeze');
+    expect(parsed.context_frequency?.['gender:male'].count).toBe(500);
+    expect(Object.keys(parsed.symptom_frequency)).toEqual(['cough', 'fever', 'wheeze']);
+    expect(parsed.metadata.configuration.max_context_features).toBe(2);
+  });
+  it.each(['gender:female', 'history:unknown'])('rejects unknown context antecedents: %s', token => {
+    const input = contextDataset([[['a', 'gender:male', 'history:asthma'], [rule('b', .8)]]]);
+    input.rules = { ['a|' + token]: [rule('b', .8)] };
+    expect(() => parseRulesOutput(input)).toThrow('unknown context token');
+  });
+  it('rejects unknown ordinary antecedents and context consequents', () => {
+    const input = contextDataset([[['a', 'gender:male'], [rule('b', .8)]]]);
+    input.rules = { 'unknown|gender:male': [rule('b', .8)] };
+    expect(() => parseRulesOutput(input)).toThrow('symptom catalog');
+    input.rules = { a: [rule('gender:male', .8)] };
+    expect(() => parseRulesOutput(input)).toThrow('symptom catalog');
+  });
+  it('rejects context in the symptom catalog and malformed context catalogs', () => {
+    expect(() => parseRulesOutput(dataset([[['a', 'gender:male'], [rule('b', .8)]]]))).toThrow('context tokens');
+    for (const token of ['age:20', 'gender:', 'history: ']) {
+      const input = dataset([[['a'], [rule('b', .8)]]]);
+      input.context_frequency = { [token]: { count: 5, probability: .005 } };
+      expect(() => parseRulesOutput(input)).toThrow('context token');
+    }
+    const input = dataset([[['a'], [rule('b', .8)]]]);
+    expect(() => parseRulesOutput({ ...input, context_frequency: [] })).toThrow('context_frequency');
+    expect(() => parseRulesOutput({ ...input, context_frequency: { 'gender:male': { count: 1, probability: 2 } } })).toThrow('context probability');
+  });
+  it('enforces max_context_features separately and rejects invalid metadata', () => {
+    const input = contextDataset([[['a', 'gender:male', 'history:asthma'], [rule('b', .8)]]]);
+    input.metadata.configuration.max_context_features = 1;
+    expect(() => parseRulesOutput(input)).toThrow('max_context_features');
+    input.metadata.configuration.max_context_features = -1;
+    expect(() => parseRulesOutput(input)).toThrow('max_context_features');
+    input.metadata.configuration.max_context_features = 2;
+    input.metadata.configuration.max_antecedent_size = 1;
+    expect(parseRulesOutput(input).rules['a|gender:male|history:asthma']).toHaveLength(1);
+    input.rules = { 'a|b|gender:male': [rule('b', .8)] };
+    expect(() => parseRulesOutput(input)).toThrow('maximum antecedent size');
+  });
+  it('allows absent context limits and rejects duplicated context catalog tokens', () => {
+    const input = contextDataset([[['a', 'gender:male'], [rule('b', .8)]]]);
+    delete input.metadata.configuration.max_context_features;
+    expect(parseRulesOutput(input).rules['a|gender:male']).toHaveLength(1);
+    input.context_frequency![' Gender:MALE '] = { count: 500, probability: .5 };
+    expect(() => parseRulesOutput(input)).toThrow('duplicate normalized context');
+  });
   it.each([undefined, null, '', '  '])('accepts absent or empty top_k_per_antecedent metadata: %s', topK => {
     const input = dataset([[['a'], [rule('b', .8)]]]);
     const withOptionalMetadata = { ...input, metadata: { ...input.metadata, configuration: { ...input.metadata.configuration, top_k_per_antecedent: topK } } };

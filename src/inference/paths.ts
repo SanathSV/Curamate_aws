@@ -46,6 +46,7 @@ export async function findSymptomPaths(
       signal?.throwIfAborted();
       const unique = new Map<string, Rule>();
       for (const rule of rules.get(symptom) ?? []) {
+        if (!source.hasSymptom(rule.then)) continue;
         const confidence = conditionalConfidence(rule.occurrences, rule.antecedent_occurrences);
         if (!unique.has(rule.then) || confidence > unique.get(rule.then)!.confidence) {
           unique.set(rule.then, { ...rule, confidence });

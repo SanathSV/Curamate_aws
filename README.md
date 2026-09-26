@@ -90,6 +90,20 @@ Observed symptoms cannot be re-inferred. Per-path lineage rejects cyclic evidenc
 
 `RuleSource` is the engine's provider contract. `InMemoryRuleSource` implements direct local lookup; a future batched provider could implement the same contract without changing the inference algorithm or presentation components. The current implementation always uses the one-download/local-computation architecture.
 
+## Patient context in combined inference
+
+Datasets may include an optional `context_frequency` catalog with the same `{ count, probability }` entries as `symptom_frequency`. Its tokens use `gender:<value>` or `history:<value>`. The optional `metadata.configuration.max_context_features` limits context tokens per antecedent; `max_antecedent_size` continues to limit symptom tokens separately. If the context limit is omitted, combinations are bounded by the available selected contexts. Older datasets without either addition remain supported.
+
+The optional **Patient context** gender dropdown and searchable history multi-select appear directly in the main composer alongside symptom input, outside Settings. Choose **Combined symptoms** in Settings to apply them during inference. Search history by any part of its name, use the arrow keys and Enter to select, and remove selected items with their chip's remove button. Options come only from `context_frequency`. Selecting context does not change the symptom Trie or send another API request. Gender is a single selection; history supports multiple selections. New exploration clears both, and a successful dataset reload removes selections absent from the new catalogs.
+
+The worker receives `observations: string[]` and `contexts: string[]` separately. Context is fixed evidence with score 1 and depth 0. For each symptom combination, the engine looks up the symptom-only key and its combinations with selected context subsets, preserving canonical alphabetical sorting with `|`. For observations `cough`, `fever` and contexts `gender:male`, `history:asthma`, lookups can include `cough|fever`, `cough|gender:male`, and `cough|fever|gender:male|history:asthma`, subject to the two size limits and available backend keys. Each lookup contains at least one symptom; context is not a new inference frontier.
+
+Normal antecedent tokens must belong to `symptom_frequency`; context antecedents must belong to `context_frequency`; every `then` must be a symptom. Reserved context tokens are rejected from the symptom catalog and never become candidates, path symptoms, or recursive discoveries. Context-conditioned direct confidence uses `occurrences / antecedent_occurrences`. The existing propagation formula, threshold, depth, and graph candidate limits remain unchanged.
+
+The graph shows selected context as separate badges, and context-conditioned evidence links label the context they use. Context never appears as a symptom circle. The evidence inspector shows context badges instead of clickable symptom controls. Changing context marks existing results as stale until discovery runs again.
+
+Single-symptom inference, the **All symptom paths** list, and the **Compare symptom likelihoods** table retain their symptom-only behavior; selected patient context applies only to combined graph inference.
+
 ## Every individual symptom path
 
 Discovery also runs `findSymptomPaths` in the worker. The **All symptom paths** section lists every qualifying ordered, cycle-free pairwise path within the selected maximum depth, including prefixes and alternative routes to the same endpoint. Each selected symptom starts an independent search; another selected symptom can appear along that path, but no symptom repeats within one path. This list always uses single-symptom rules, even when the graph is exploring combined antecedents.
@@ -208,7 +222,8 @@ The tables below cover every source, test, asset, and project configuration file
 | File | Objective |
 | --- | --- |
 | [src/inference/canonicalize.ts](src/inference/canonicalize.ts) | Normalize symptom names, produce sorted and deduplicated antecedent keys, and format symptom labels for display. |
-| [src/inference/combinations.ts](src/inference/combinations.ts) | Generate antecedent combinations within the configured size, including at least one newly discovered or changed symptom, without repeating unchanged combinations. |
+| [src/inference/context.ts](src/inference/context.ts) | Identify reserved gender/history context tokens and format separate patient-context labels. |
+| [src/inference/combinations.ts](src/inference/combinations.ts) | Generate antecedent combinations containing new/changed symptoms, with optional fixed context subsets and independent limits on symptom and context counts. |
 | [src/inference/scoring.ts](src/inference/scoring.ts) | Calculate empirical conditional confidence from occurrence counts, reject inconsistent counts, propagate scores, and rank evidence/candidates deterministically. |
 | [src/inference/engine.ts](src/inference/engine.ts) | Discover graph candidates through pairwise or combined rules; enforce score, depth, top-K, cycle, and work limits while retaining candidate evidence. |
 | [src/inference/paths.ts](src/inference/paths.ts) | Export `findSymptomPaths` and its result types; enumerate each qualifying ordered pairwise path independently of graph top-K, preserving alternative routes, per-link counts/confidences, total scores, and explicit cutoff status. |
@@ -224,6 +239,7 @@ The tables below cover every source, test, asset, and project configuration file
 | --- | --- |
 | [src/components/SymptomMultiSelect.tsx](src/components/SymptomMultiSelect.tsx) | Provide reusable symptom autocomplete, keyboard navigation, selected chips, configurable accessible labels, and exclusions for the explorer and comparison selectors. |
 | [src/components/InferenceControls.tsx](src/components/InferenceControls.tsx) | Let users select rule mode, specify a numeric or slider threshold, choose maximum depth, adjust graph candidates per depth, and restore defaults. |
+| [src/components/PatientContext.tsx](src/components/PatientContext.tsx) | Provide the optional gender selector and history multi-select from the context catalog, with context badges and mode guidance. |
 | [src/components/Methodology.tsx](src/components/Methodology.tsx) | Explain the inference model, evidence propagation, and the distinction between association scores and clinical probabilities in a dialog. |
 | [src/components/results/InferenceResults.tsx](src/components/results/InferenceResults.tsx) | Group graph candidates by discovery depth and provide selectable rows for inspecting their evidence. |
 | [src/components/results/SymptomPaths.tsx](src/components/results/SymptomPaths.tsx) | Display individual symptom sequences with scores and link counts, paginate results, flag partial searches, and download the complete returned result as JSON. |
@@ -242,7 +258,7 @@ The tables below cover every source, test, asset, and project configuration file
 
 | File | Objective |
 | --- | --- |
-| [src/types/rules.ts](src/types/rules.ts) | Describe API rules, occurrence counts, symptom frequencies, metadata/configuration, and the complete dataset shape. |
+| [src/types/rules.ts](src/types/rules.ts) | Describe API rules, occurrence counts, separate symptom/context frequency catalogs, metadata/configuration (including context limits), and the complete dataset shape. |
 | [src/types/inference.ts](src/types/inference.ts) | Describe inference settings, evidence, candidates, and results, including optional path-search results; define default settings. |
 | [src/types/graph.ts](src/types/graph.ts) | Define the graph handle used by controls to fit, center, reset, zoom, or focus the graph. |
 
@@ -255,6 +271,7 @@ The tables below cover every source, test, asset, and project configuration file
 | [src/trie/Trie.test.ts](src/trie/Trie.test.ts) | Verify prefix matching, frequency ordering, normalization, exclusions, and reuse of the dataset search index. |
 | [src/inference/canonicalize.test.ts](src/inference/canonicalize.test.ts) | Verify normalized symptom keys and unique, bounded antecedent combinations, including frontier filtering. |
 | [src/inference/engine.test.ts](src/inference/engine.test.ts) | Verify joint and pairwise inference, recursion, evidence ranking, counts-based confidence, cycle prevention, cancellation, and threshold/depth/top-K limits. |
+| [src/inference/inference.worker.test.ts](src/inference/inference.worker.test.ts) | Verify that worker messages carry observations and contexts separately, combined results use context, and individual paths remain symptom-only. |
 | [src/inference/paths.test.ts](src/inference/paths.test.ts) | Verify complete ordered path enumeration on small networks, independent alternative routes, full-path thresholds, counts, cycle prevention, deduplication, cancellation, and explicit safety cutoffs. |
 | [src/inference/compareSymptoms.test.ts](src/inference/compareSymptoms.test.ts) | Verify joint conditioning, single-source comparisons, count-based likelihoods, baseline differences, normalized selections, and missing/zero/inconsistent data handling. |
 | [src/components/graph/buildGraph.test.ts](src/components/graph/buildGraph.test.ts) | Verify direct pairwise links, shared joint-rule diamonds, and graph filtering without dangling edges. |
