@@ -12,14 +12,17 @@ interface Props {
   selected: string[];
   onChange: (selected: string[]) => void;
   disabled?: boolean;
+  label?: string;
+  placeholder?: string;
+  excludedSymptoms?: string[];
 }
-export function SymptomMultiSelect({ trie, frequency, selected, onChange, disabled }: Props) {
+export function SymptomMultiSelect({ trie, frequency, selected, onChange, disabled, label = 'observed symptoms', placeholder = 'Search and add observed symptoms…', excludedSymptoms }: Props) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const id = useId();
-  const excluded = useMemo(() => new Set(selected), [selected]);
+  const excluded = useMemo(() => new Set([...selected, ...(excludedSymptoms ?? [])]), [selected, excludedSymptoms]);
   const matches = useMemo(() => trie?.search(query, 8, excluded) ?? [], [trie, query, excluded]);
   const activeIndex = Math.min(active, Math.max(0, matches.length - 1));
   function select(symptom: string) {
@@ -39,8 +42,8 @@ export function SymptomMultiSelect({ trie, frequency, selected, onChange, disabl
     } else if (event.key === 'Backspace' && !query && selected.length) onChange(selected.slice(0, -1));
   }
   return <div className="symptom-selector" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
-    <label className="sr-only" htmlFor={id}>Search observed symptoms</label>
-    {selected.length > 0 && <div className="selected-symptoms" aria-label="Selected observed symptoms">
+    <label className="sr-only" htmlFor={id}>Search {label}</label>
+    {selected.length > 0 && <div className="selected-symptoms" aria-label={'Selected ' + label}>
       {selected.map(symptom => <span className="symptom-chip" key={symptom}>
         <Check size={12} />{displaySymptom(symptom)}
         <button type="button" aria-label={'Remove ' + displaySymptom(symptom)} disabled={disabled} onClick={() => onChange(selected.filter(item => item !== symptom))}><X size={13} /></button>
@@ -48,7 +51,7 @@ export function SymptomMultiSelect({ trie, frequency, selected, onChange, disabl
     </div>}
     <div className={'search-field ' + (open ? 'is-focused' : '')}>
       <Search size={17} aria-hidden="true" />
-      <input id={id} ref={input} value={query} placeholder="Search and add observed symptoms…"
+      <input id={id} ref={input} value={query} placeholder={placeholder}
         role="combobox" aria-autocomplete="list" aria-expanded={open && !disabled}
         aria-controls={id + '-list'} aria-activedescendant={open && matches.length ? id + '-option-' + activeIndex : undefined}
         disabled={disabled} autoComplete="off" spellCheck={false}
@@ -67,6 +70,6 @@ export function SymptomMultiSelect({ trie, frequency, selected, onChange, disabl
       </ul>
       <div className="search-hint"><span>↑ ↓ to navigate</span><span>↵ to select</span></div>
     </div>}
-    <span className="sr-only" role="status">{selected.length} observed symptoms selected</span>
+    <span className="sr-only" role="status">{selected.length} {label} selected</span>
   </div>;
 }

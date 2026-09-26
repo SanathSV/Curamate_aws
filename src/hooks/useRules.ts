@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ConfigurationError, fetchRules, retryRules } from '../api/rulesApi';
+import { ConfigurationError, fetchRules, reloadRules } from '../api/rulesApi';
 import type { RulesOutput } from '../types/rules';
 import { createSymptomTrie } from '../trie/symptomTrie';
 export function useRules() {
@@ -8,11 +8,12 @@ export function useRules() {
   const [configurationMissing, setConfigurationMissing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   useEffect(() => {
     let active = true;
     setLoading(true); setError(null);
-    const request = attempt ? retryRules() : fetchRules();
-    request.then(result => { if (active) { setData(result); setLoading(false); setConfigurationMissing(false); } })
+    const request = attempt ? reloadRules() : fetchRules();
+    request.then(result => { if (active) { setData(result); setLoadedAt(new Date()); setLoading(false); setConfigurationMissing(false); } })
       .catch((reason: unknown) => {
         if (active) {
           setError(reason instanceof Error ? reason.message : 'Unable to load the dataset.');
@@ -22,6 +23,6 @@ export function useRules() {
     return () => { active = false; };
   }, [attempt]);
   const trie = useMemo(() => data ? createSymptomTrie(data.symptom_frequency) : null, [data]);
-  const retry = useCallback(() => setAttempt(value => value + 1), []);
-  return { data, trie, loading, error, configurationMissing, retry };
+  const reload = useCallback(() => { setLoading(true); setAttempt(value => value + 1); }, []);
+  return { data, trie, loading, error, configurationMissing, retry: reload, reload, loadedAt };
 }

@@ -142,7 +142,7 @@ function optionalNumber(
   if (
     value === undefined ||
     value === null ||
-    value === ''
+    (typeof value === 'string' && value.trim() === '')
   ) {
     return undefined;
   }
@@ -1030,6 +1030,7 @@ let cachedRequest:
 
 
 let failed = false;
+let requestPending = false;
 
 
 /* ============================================================
@@ -1054,6 +1055,7 @@ export function fetchRules():
   }
 
 
+  requestPending = true;
   cachedRequest =
     (async () => {
 
@@ -1124,6 +1126,8 @@ export function fetchRules():
 
             credentials:
               'omit',
+
+            cache: 'no-store',
 
             headers: {
 
@@ -1316,7 +1320,7 @@ export function fetchRules():
           throw error;
 
         },
-      );
+      ).finally(() => { requestPending = false; });
 
 
   return cachedRequest;
@@ -1349,6 +1353,14 @@ export function retryRules():
 
   return fetchRules();
 
+}
+
+/** Explicit user action: replace the page cache, but coalesce concurrent reload clicks. */
+export function reloadRules(): Promise<RulesOutput> {
+  if (requestPending && cachedRequest) return cachedRequest;
+  cachedRequest = undefined;
+  failed = false;
+  return fetchRules();
 }
 
 

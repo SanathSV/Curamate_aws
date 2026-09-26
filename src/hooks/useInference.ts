@@ -10,6 +10,8 @@ export function useInference(data: RulesOutput | null) {
   const currentId = useRef(0);
   const worker = useRef<Worker | null>(null);
   useEffect(() => {
+    currentId.current++;
+    setResult(null); setRunning(false); setReady(false);
     if (!data) return;
     setReady(false); setError(null);
     let instance: Worker;

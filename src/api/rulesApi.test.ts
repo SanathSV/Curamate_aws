@@ -4,6 +4,16 @@ import { parseRulesOutput } from './rulesApi';
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.resetModules(); });
 describe('dataset validation', () => {
+  it.each([undefined, null, '', '  '])('accepts absent or empty top_k_per_antecedent metadata: %s', topK => {
+    const input = dataset([[['a'], [rule('b', .8)]]]);
+    const withOptionalMetadata = { ...input, metadata: { ...input.metadata, configuration: { ...input.metadata.configuration, top_k_per_antecedent: topK } } };
+    expect(parseRulesOutput(withOptionalMetadata).metadata.configuration.top_k_per_antecedent).toBeUndefined();
+  });
+  it('accepts numeric strings in optional metadata and wrapped API responses', () => {
+    const input = dataset([[['a'], [rule('b', .8)]]]);
+    const payload = { ...input, metadata: { ...input.metadata, configuration: { ...input.metadata.configuration, top_k_per_antecedent: '20' } } };
+    expect(parseRulesOutput({ statusCode: 200, body: JSON.stringify(payload) }).metadata.configuration.top_k_per_antecedent).toBe(20);
+  });
   it('accepts the reduced metadata shape and canonicalizes API keys', () => {
     const input = dataset([[['fatigue', 'fever'], [rule('cough', .91)]]]);
     input.rules[' Fever | FATIGUE '] = input.rules['fatigue|fever'];
@@ -59,5 +69,24 @@ describe('one API request per page load', () => {
     const api = await import('./rulesApi');
     await expect(api.fetchRules()).rejects.toThrow('not been configured');
     expect(fetch).not.toHaveBeenCalled();
+  });
+  it('explicitly reloads a successful dataset and shares simultaneous reloads', async () => {
+    let resolveReload: (value: Response) => void = () => {};
+    const initial = dataset([[['a'], [rule('b', .9)]]]);
+    const updated = dataset([[['a'], [rule('c', .8)]]]);
+    let calls = 0;
+    const { api, fetch } = await setup(() => ++calls === 1
+      ? Promise.resolve(new Response(JSON.stringify(initial)))
+      : new Promise<Response>(resolve => { resolveReload = resolve; }));
+    const first = await api.fetchRules();
+    const reload = api.reloadRules();
+    expect(api.reloadRules()).toBe(reload);
+    expect(api.fetchRules()).toBe(reload);
+    resolveReload(new Response(JSON.stringify(updated)));
+    const fresh = await reload;
+    expect(fresh).not.toBe(first);
+    expect(fresh.rules.a[0].then).toBe('c');
+    expect(await api.fetchRules()).toBe(fresh);
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 });

@@ -10,13 +10,13 @@ function graphStyles(theme: Theme): StylesheetJson {
   const dark = theme === 'dark';
   return [
   { selector: 'node.symptom', style: {
-    shape: 'round-rectangle', width: 162, height: 74, 'background-color': dark ? '#263934' : '#e8f5ef',
+    shape: 'ellipse', width: 64, height: 64, 'background-color': dark ? '#263934' : '#e8f5ef',
     'border-width': 1.7, 'border-color': dark ? '#779c88' : '#528773', label: 'data(label)', color: dark ? '#e1f5e9' : '#214d3a',
     'font-family': 'DM Sans Variable, sans-serif', 'font-size': 14, 'font-weight': 500,
-    'text-wrap': 'wrap', 'text-max-width': '140px', 'text-valign': 'center', 'text-halign': 'center',
+    'text-wrap': 'wrap', 'text-max-width': '168px', 'text-valign': 'bottom', 'text-halign': 'center', 'text-margin-y': 12,
     'line-height': 1.6, 'overlay-opacity': 0,
   } },
-  { selector: 'node.observed', style: { 'background-color': dark ? '#1b6554' : '#18775f', 'border-color': dark ? '#65c8a7' : '#18775f', color: '#ffffff', 'font-weight': 600 } },
+  { selector: 'node.observed', style: { width: 76, height: 76, 'background-color': dark ? '#1b6554' : '#18775f', 'border-color': dark ? '#65c8a7' : '#18775f', color: dark ? '#e4f5ee' : '#20563d', 'font-weight': 600 } },
   { selector: 'node.depth-2', style: { 'background-color': dark ? '#293746' : '#edf4ff', 'border-color': dark ? '#7fa5d8' : '#678cbb', color: dark ? '#e0edff' : '#365c90' } },
   { selector: 'node.depth-3', style: { 'background-color': dark ? '#373045' : '#f3f0fa', 'border-color': dark ? '#b19ad0' : '#9580b3', color: dark ? '#efe4ff' : '#675596' } },
   { selector: 'node.rule', style: {
@@ -30,6 +30,11 @@ function graphStyles(theme: Theme): StylesheetJson {
     'control-point-step-size': 35, 'arrow-scale': .7, 'overlay-opacity': 0,
   } },
   { selector: 'edge.consequent', style: { 'target-arrow-shape': 'triangle' } },
+  { selector: 'edge.pairwise', style: {
+    label: 'data(label)', color: dark ? '#d1dbd6' : '#456456', 'font-size': 12,
+    'font-family': 'DM Sans Variable, sans-serif', 'text-background-color': dark ? '#1b1e20' : '#fbfcfd',
+    'text-background-opacity': 1, 'text-background-padding': '4px', 'text-margin-y': -10,
+  } },
   { selector: 'edge.secondary', style: { 'line-style': 'dashed', 'line-opacity': 1, width: 1.6 } },
   { selector: 'edge.highlighted', style: { 'line-color': dark ? '#91e9c0' : '#138264', 'target-arrow-color': dark ? '#91e9c0' : '#138264', width: 3, 'line-opacity': 1 } },
   { selector: 'node.highlighted', style: { 'border-color': dark ? '#91e9c0' : '#138264', 'border-width': 2.5 } },
@@ -76,6 +81,7 @@ export const SymptomGraph = forwardRef<GraphHandle, Props>(function SymptomGraph
     });
     graph.current = cy;
     cy.on('tap', 'node', event => selectRef.current(event.target.data('symptom') as string));
+    cy.on('tap', 'edge.pairwise', event => selectRef.current(event.target.data('symptom') as string));
     cy.on('tap', event => { if (event.target === cy) selectRef.current(null); });
     cy.on('mouseover', 'node', event => { event.target.addClass('hovered'); if (container.current) container.current.style.cursor = 'pointer'; });
     cy.on('mouseout', 'node', event => { event.target.removeClass('hovered'); if (container.current) container.current.style.cursor = 'grab'; });
@@ -105,5 +111,5 @@ export const SymptomGraph = forwardRef<GraphHandle, Props>(function SymptomGraph
     const path = node.union(node.predecessors());
     path.addClass('highlighted'); node.addClass('focused');
   }, [selected, elements]);
-  return <div className="cytoscape-container" ref={container} role="img" aria-label="Interactive symptom association network. Each diamond combines all antecedents into one rule. Use the candidate list below for keyboard-accessible evidence inspection." />;
+  return <div className="cytoscape-container" ref={container} role="img" aria-label="Interactive symptom node graph. Labeled arrows show single-symptom rule confidence. Diamonds combine multiple antecedents into a joint rule. Use the candidate list for keyboard-accessible evidence inspection." />;
 });

@@ -11,7 +11,7 @@ export function buildGraph(observed: string[], candidates: Candidate[], maxDepth
   visible.forEach(candidate => layers.set(candidate.depth, [...(layers.get(candidate.depth) ?? []), candidate.symptom]));
   const positions = new Map<string, { x: number; y: number }>();
   layers.forEach((symptoms, depth) => symptoms.forEach((symptom, index) => {
-    positions.set(symptom, { x: 85 + depth * 255, y: 235 + (index - (symptoms.length - 1) / 2) * 125 });
+    positions.set(symptom, { x: 85 + depth * 270, y: 235 + (index - (symptoms.length - 1) / 2) * 175 });
   }));
   const elements: ElementDefinition[] = observed.map(symptom => ({
     data: { id: symptomId(symptom), symptom, kind: 'symptom', label: displaySymptom(symptom) + '\nObserved · depth 0', depth: 0 },
@@ -27,6 +27,15 @@ export function buildGraph(observed: string[], candidates: Candidate[], maxDepth
     paths.forEach((path, index) => {
       const target = positions.get(candidate.symptom)!;
       const id = 'rule:' + path.id;
+      // A single antecedent is an ordinary directed link. Joint rules still need their shared diamond.
+      if (path.antecedents.length === 1) {
+        elements.push({
+          data: { id, source: symptomId(path.antecedents[0]), target: symptomId(candidate.symptom),
+            symptom: candidate.symptom, evidenceId: path.id, label: percent(path.rule.confidence) },
+          classes: 'evidence-edge consequent pairwise' + (path.id === candidate.bestEvidence.id ? '' : ' secondary'),
+        });
+        return;
+      }
       elements.push({
         data: { id, kind: 'rule', symptom: candidate.symptom, label: percent(path.rule.confidence), evidenceId: path.id },
         classes: 'rule' + (path.id === candidate.bestEvidence.id ? ' strongest' : ' secondary'),

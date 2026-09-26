@@ -1,8 +1,8 @@
 import type { Rule, RulesOutput } from '../types/rules';
 import { canonicalKey, normalizeSymptom } from '../inference/canonicalize';
 export function rule(then: string, confidence: number, overrides: Partial<Rule> = {}): Rule {
-  return { then: normalizeSymptom(then), confidence, support: .1, lift: 1.5, occurrences: 100,
-    antecedent_occurrences: 125, consequent_occurrences: 150, ...overrides };
+  return { then: normalizeSymptom(then), confidence, support: .1, lift: 1.5, occurrences: Math.round(confidence * 1000),
+    antecedent_occurrences: 1000, consequent_occurrences: 1000, ...overrides };
 }
 export function dataset(entries: [string[], Rule[]][]): RulesOutput {
   const names = new Set(entries.flatMap(([before, rules]) => [...before.map(normalizeSymptom), ...rules.map(item => item.then)]));

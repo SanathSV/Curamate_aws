@@ -2,7 +2,7 @@ import type { RuleSource } from '../api/rulesApi';
 import type { Rule } from '../types/rules';
 import { canonicalKey } from './canonicalize';
 import { combinations } from './combinations';
-import { compareCandidates, compareEvidence, propagatedScore } from './scoring';
+import { compareCandidates, compareEvidence, conditionalConfidence, propagatedScore } from './scoring';
 import type { Candidate, EvidencePath, InferenceOptions, InferenceResult } from '../types/inference';
 
 type Known = { score: number; pathDepth: number; lineage: string[] };
@@ -13,8 +13,11 @@ export async function infer(source: RuleSource, symptoms: string[], options: Inf
   const started = performance.now();
   if (!Number.isFinite(options.minScore) || options.minScore < 0 || options.minScore > 1 ||
     !Number.isInteger(options.maxDepth) || options.maxDepth < 1 || options.maxDepth > 6 ||
-    !Number.isInteger(options.topK) || options.topK < 1 || options.topK > 12) throw new Error('Invalid inference settings.');
+    !Number.isInteger(options.topK) || options.topK < 1 || options.topK > 12 ||
+    (options.associationMode !== undefined && !['pairwise', 'combined'].includes(options.associationMode))) throw new Error('Invalid inference settings.');
   const metadata = source.getMetadata();
+  // Single-symptom keys measure B given A, without additionally conditioning on C, D, or E.
+  const maxAntecedentSize = options.associationMode === 'pairwise' ? 1 : metadata.configuration.max_antecedent_size;
   const key = canonicalKey(symptoms);
   const observed = key ? key.split('|') : [];
   if (observed.some(symptom => !source.hasSymptom(symptom))) throw new Error('Select symptoms from the dataset catalog.');
@@ -50,7 +53,11 @@ export async function infer(source: RuleSource, symptoms: string[], options: Inf
         if (signatures.get(antecedentKey) === signature) continue;
         signatures.set(antecedentKey, signature);
         evaluatedAntecedents.add(antecedentKey);
-        (ruleCache.get(antecedentKey) ?? []).forEach((rule, index) => {
+        (ruleCache.get(antecedentKey) ?? []).forEach((storedRule, index) => {
+          const rule = options.associationMode === 'pairwise'
+            ? { ...storedRule, confidence: conditionalConfidence(storedRule.occurrences, storedRule.antecedent_occurrences) }
+            : storedRule;
+          if (rule.confidence === 0 || rule.occurrences === 0) return;
           if (observedSet.has(rule.then) || lineage.includes(rule.then)) return;
           touched.add(rule.then);
           const path: EvidencePath = {
@@ -69,7 +76,7 @@ export async function infer(source: RuleSource, symptoms: string[], options: Inf
       }
     };
     let batch: string[] = [];
-    for (const antecedent of combinations([...known.keys()], metadata.configuration.max_antecedent_size, frontier)) {
+    for (const antecedent of combinations([...known.keys()], maxAntecedentSize, frontier)) {
       if (++visited > MAX_COMBINATIONS) { truncated = true; break; }
       batch.push(antecedent);
       if (batch.length === BATCH_SIZE) {

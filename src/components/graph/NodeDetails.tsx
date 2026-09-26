@@ -46,6 +46,11 @@ export function NodeDetails({ candidate, observed, frequency, onSelect, onClose 
         <Metric label="Lift" value={candidate.bestEvidence.rule.lift.toFixed(2) + '×'} help="Rule confidence divided by the consequent's dataset frequency. Values above 1 indicate positive association." />
         <Metric label="Occurrences" value={formatNumber(candidate.bestEvidence.rule.occurrences)} help="Number of dataset transactions containing both the antecedents and the consequent." />
       </dl>
+      {candidate.bestEvidence.antecedents.length === 1 && <div className="conditional-explanation">
+        <strong>P({displaySymptom(candidate.symptom)} | {displaySymptom(candidate.bestEvidence.antecedents[0])})</strong>
+        <p>{formatNumber(candidate.bestEvidence.rule.occurrences)} records with both symptoms ÷ {formatNumber(candidate.bestEvidence.rule.antecedent_occurrences)} records with {displaySymptom(candidate.bestEvidence.antecedents[0])} = {percent(candidate.bestEvidence.rule.confidence, 2)} direct confidence.</p>
+        <p>Other symptoms in those records do not change this pairwise calculation. Later steps use a propagated inference score.</p>
+      </div>}
       {candidate.bestEvidence.depth > 1 && <div className="score-formula"><span>How the score is calculated</span><strong>{percent(candidate.bestEvidence.rule.confidence)} × {percent(candidate.bestEvidence.parentScore, 1)} = {percent(candidate.inferenceScore, 1)}</strong><p>Rule confidence × lowest parent score</p></div>}
       <div className="additional-paths"><div className="evidence-section-title"><h4>Additional evidence</h4><span className="count-badge">{candidate.evidence.length - 1}</span></div>
         {candidate.evidence.length === 1 ? <p className="muted small">No additional paths in this exploration.</p> : candidate.evidence.slice(1).map(path => <details key={path.id} className="additional-path">

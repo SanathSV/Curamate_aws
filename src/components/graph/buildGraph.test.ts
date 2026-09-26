@@ -6,7 +6,7 @@ import { DEFAULT_OPTIONS } from '../../types/inference';
 import { buildGraph } from './buildGraph';
 describe('hypergraph construction', () => {
   it('joins all antecedents at one rule diamond instead of independent symptom edges', async () => {
-    const result = await infer(new InMemoryRuleSource(dataset([[['a', 'c'], [rule('b', .9)]]])), ['a', 'c'], DEFAULT_OPTIONS);
+    const result = await infer(new InMemoryRuleSource(dataset([[['a', 'c'], [rule('b', .9)]]])), ['a', 'c'], { ...DEFAULT_OPTIONS, associationMode: 'combined' });
     const elements = buildGraph(result.observed, result.candidates, 3, 0);
     const rules = elements.filter(element => element.data.kind === 'rule');
     expect(rules).toHaveLength(1);
@@ -21,5 +21,13 @@ describe('hypergraph construction', () => {
     const filtered = buildGraph(result.observed, result.candidates, 3, .85);
     expect(filtered.filter(element => element.data.kind === 'symptom').map(element => element.data.symptom)).toEqual(['a', 'b']);
     expect(filtered.some(element => element.data.symptom === 'x')).toBe(false);
+  });
+  it('renders pairwise rules as labeled node-to-node links without unnecessary diamonds', async () => {
+    const result = await infer(new InMemoryRuleSource(dataset([[['a'], [rule('b', .9)]]])), ['a'], DEFAULT_OPTIONS);
+    const elements = buildGraph(result.observed, result.candidates, 3, 0);
+    expect(elements.filter(element => element.data.kind === 'rule')).toHaveLength(0);
+    const link = elements.find(element => element.data.source === 'symptom:a' && element.data.target === 'symptom:b');
+    expect(link?.data.label).toBe('90%');
+    expect(link?.data.symptom).toBe('b');
   });
 });

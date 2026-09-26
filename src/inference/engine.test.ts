@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { InMemoryRuleSource } from '../api/rulesApi';
 import { dataset, rule } from '../test/fixtures';
-import { DEFAULT_OPTIONS } from '../types/inference';
+import { DEFAULT_OPTIONS as UI_DEFAULT_OPTIONS } from '../types/inference';
 import { infer } from './engine';
+const DEFAULT_OPTIONS = { ...UI_DEFAULT_OPTIONS, associationMode: 'combined' as const };
 
 describe('latent symptom inference', () => {
   it('discovers B from the joint A|C antecedent', async () => {
@@ -89,5 +90,34 @@ describe('latent symptom inference', () => {
     expect((await infer(source, [], DEFAULT_OPTIONS)).candidates).toEqual([]);
     const controller = new AbortController(); controller.abort();
     await expect(infer(source, ['a'], DEFAULT_OPTIONS, controller.signal)).rejects.toThrow();
+  });
+});
+
+describe('pairwise conditional associations', () => {
+  it('computes P(B | A) from counts and does not condition on additional selected symptoms', async () => {
+    const source = new InMemoryRuleSource(dataset([
+      [['a'], [rule('b', .7, { occurrences: 72, antecedent_occurrences: 100 })]],
+      [['a', 'c'], [rule('x', .99)]],
+    ]));
+    const lookup = vi.spyOn(source, 'getRules');
+    const result = await infer(source, ['a', 'c'], UI_DEFAULT_OPTIONS);
+    expect(result.candidates.map(candidate => candidate.symptom)).toEqual(['b']);
+    expect(result.candidates[0].inferenceScore).toBe(.72);
+    expect(lookup.mock.calls.flatMap(([keys]) => keys).every(key => !key.includes('|'))).toBe(true);
+  });
+  it('propagates pairwise evidence as a score, not a new conditional probability', async () => {
+    const source = new InMemoryRuleSource(dataset([[['a'], [rule('b', .9)]], [['b'], [rule('d', .8)]]]));
+    const result = await infer(source, ['a'], UI_DEFAULT_OPTIONS);
+    expect(result.candidates.map(item => [item.symptom, item.depth])).toEqual([['b', 1], ['d', 2]]);
+    expect(result.candidates[1].inferenceScore).toBeCloseTo(.72);
+    expect(result.candidates[1].bestEvidence.rule.confidence).toBe(.8);
+  });
+  it('never infers a zero-occurrence pair even at a zero threshold', async () => {
+    const source = new InMemoryRuleSource(dataset([[['a'], [rule('b', 0)]]]));
+    expect((await infer(source, ['a'], { ...UI_DEFAULT_OPTIONS, minScore: 0 })).candidates).toEqual([]);
+  });
+  it('rejects contradictory pair counts rather than presenting a probability over 100%', async () => {
+    const source = new InMemoryRuleSource(dataset([[['a'], [rule('b', .9, { occurrences: 11, antecedent_occurrences: 10 })]]]));
+    await expect(infer(source, ['a'], UI_DEFAULT_OPTIONS)).rejects.toThrow('occurrence counts');
   });
 });

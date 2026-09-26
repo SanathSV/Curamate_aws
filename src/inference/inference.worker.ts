@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import { InMemoryRuleSource } from '../api/rulesApi';
 import { infer } from './engine';
+import { findSymptomPaths } from './paths';
 import type { WorkerRequest, WorkerResponse } from './protocol';
 const worker = self as unknown as DedicatedWorkerGlobalScope;
 let source: InMemoryRuleSource | undefined;
@@ -14,7 +15,10 @@ worker.onmessage = async ({ data }: MessageEvent<WorkerRequest>) => {
   active = controller;
   try {
     if (!source) throw new Error('The dataset is still loading.');
+    const started = performance.now();
     const result = await infer(source, data.observed, data.options, controller.signal);
+    result.paths = await findSymptomPaths(source, data.observed, data.options, controller.signal);
+    result.durationMs = performance.now() - started;
     if (!controller.signal.aborted) send({ type: 'result', id: data.id, result });
   } catch (error) {
     if (!controller.signal.aborted) send({ type: 'error', id: data.id, message: error instanceof Error ? error.message : 'Unable to complete inference.' });
