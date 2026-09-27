@@ -43,15 +43,15 @@ export function PatientContext({ frequency, contexts, onChange, disabled, combin
     }
   }
   return <section className="patient-context" aria-labelledby={id + '-title'}>
-    <h3 id={id + '-title'}>Patient context <span>Optional</span></h3>
+    <h3 id={id + '-title'} className="sr-only">Patient context</h3>
     <div className="context-fields"><div className="context-field">
-    <label htmlFor={id + '-gender'}>Gender</label>
+    <label htmlFor={id + '-gender'}>Gender <span>Optional</span></label>
     <div className="context-gender-select"><select id={id + '-gender'} disabled={disabled || !genders.length} value={contexts.find(token => token.startsWith('gender:')) ?? ''} onChange={event => onChange([...contexts.filter(token => !token.startsWith('gender:')), ...(event.target.value ? [event.target.value] : [])])}>
       <option value="">Not specified</option>
       {genders.map(token => <option key={token} value={token}>{displaySymptom(token.slice('gender:'.length))}</option>)}
     </select><ChevronDown size={15} aria-hidden="true" /></div>
     </div><div className="context-field">
-    <label htmlFor={id + '-history'}>Medical history</label>
+    <label htmlFor={id + '-history'}>Medical history <span>Optional</span></label>
     <div className="history-picker" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
       {selectedHistory.length > 0 && <div className="history-chips" aria-label="Selected medical history">{selectedHistory.map(token => <span key={token}>{displaySymptom(token.slice(8))}<button type="button" disabled={disabled} aria-label={'Remove history ' + displaySymptom(token.slice(8))} onClick={() => onChange(contexts.filter(value => value !== token))}><X size={12} /></button></span>)}</div>}
       <div className="history-search"><Search size={15} aria-hidden="true" /><input id={id + '-history'} ref={search} type="text" value={query} placeholder={histories.length ? 'Search history…' : 'No history options available'} disabled={disabled || !histories.length}
@@ -66,6 +66,6 @@ export function PatientContext({ frequency, contexts, onChange, disabled, combin
     </div>
     </div></div>
     <span className="sr-only" role="status">{selectedHistory.length} history items selected{expanded ? ', ' + matches.length + ' suggestions available' : ''}</span>
-    <p className="field-hint">{combined ? 'Patient context is included in combined inference.' : 'To include patient context, choose Combined symptoms in Settings.'}</p>
+    {contexts.length > 0 && <p className="field-hint">{combined ? 'Patient context included' : 'Gender filters symptoms. Use Combined symptoms in Settings for context-conditioned rules.'}</p>}
   </section>;
 }

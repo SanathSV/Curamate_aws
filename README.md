@@ -90,9 +90,27 @@ Observed symptoms cannot be re-inferred. Per-path lineage rejects cyclic evidenc
 
 `RuleSource` is the engine's provider contract. `InMemoryRuleSource` implements direct local lookup; a future batched provider could implement the same contract without changing the inference algorithm or presentation components. The current implementation always uses the one-download/local-computation architecture.
 
+## Gender-based symptom filtering
+
+The API may provide top-level `male_symptoms` and `female_symptoms` arrays of symptom names. The loader normalizes and deduplicates each list. These lists may be broader than `symptom_frequency`; extra names are preserved in the parsed response, but are unavailable for selection or inference because they have no catalog frequency data. Non-string entries and context tokens are rejected.
+
+The main gender selector applies these lists throughout the interface:
+
+- **Male:** only symptoms in `male_symptoms` are available.
+- **Female:** only symptoms in `female_symptoms` are available.
+- **Not specified:** all symptoms in `symptom_frequency` are available.
+
+Selectable symptoms are the intersection of the selected gender list and `symptom_frequency`. Symptoms present in both lists remain available for either selection. The interface reports how many list entries lack catalog data; it does not invent counts or alias raw labels to different symptoms. Filtering applies to symptom autocomplete, quick-add suggestions, observed selections, graph candidates, every intermediate node in individual paths, and the comparison selectors/table. Rules with excluded symptom antecedents or consequents are omitted from that view; context tokens remain separate fixed evidence. Changing gender removes incompatible selected symptoms with a notice and clears previous discovery results so they cannot display symptoms from the old selection. Comparison selections are pruned against the new catalog.
+
+The supplied example response has 69 catalog symptoms, 18 context features, 507 antecedent keys, and 830 rules. Its male list has 77 names and its female list has 78; both include all 69 catalog symptoms. Therefore both gender selections currently show 69 supported symptoms. Different selectable sets require corresponding differences in the backend lists among names that exist in the symptom catalog.
+
+The original dataset remains intact. Gender-specific views are cached locally and shared with the same search/index logic; the worker filters its loaded dataset for each discovery request. Gender changes never fetch the API again. An explicitly empty list allows no symptoms; an absent list preserves legacy access to all symptoms and displays a notice that the selected gender's list is unavailable.
+
+This is a restriction on which symptoms appear, not a recalculation of probabilities. Recorded counts, dataset totals, thresholds, and propagation mathematics remain unchanged. Actual context-conditioned confidence still requires a matching gender/history rule in **Combined symptoms** mode.
+
 ## Patient context in combined inference
 
-Datasets may include an optional `context_frequency` catalog with the same `{ count, probability }` entries as `symptom_frequency`. Its tokens use `gender:<value>` or `history:<value>`. The optional `metadata.configuration.max_context_features` limits context tokens per antecedent; `max_antecedent_size` continues to limit symptom tokens separately. If the context limit is omitted, combinations are bounded by the available selected contexts. Older datasets without either addition remain supported.
+Datasets may include an optional `context_frequency` catalog. The supplied structure uses entries such as `"gender:male": { "type": "gender", "value": "male", "count": 315, "probability": 0.463235 }`; history entries use `type: "history"`. The loader preserves `type` and `value` and validates them against the token. Older `{ count, probability }` entries remain supported. Optional `metadata.unique_context_features` is also preserved. Tokens use `gender:<value>` or `history:<value>`. The optional `metadata.configuration.max_context_features` limits context tokens per antecedent; `max_antecedent_size` continues to limit symptom tokens separately. If the context limit is omitted, combinations are bounded by the available selected contexts. Older datasets without either addition remain supported.
 
 The optional **Patient context** gender dropdown and searchable history multi-select appear directly in the main composer alongside symptom input, outside Settings. Choose **Combined symptoms** in Settings to apply them during inference. Search history by any part of its name, use the arrow keys and Enter to select, and remove selected items with their chip's remove button. Options come only from `context_frequency`. Selecting context does not change the symptom Trie or send another API request. Gender is a single selection; history supports multiple selections. New exploration clears both, and a successful dataset reload removes selections absent from the new catalogs.
 
@@ -102,7 +120,7 @@ Normal antecedent tokens must belong to `symptom_frequency`; context antecedents
 
 The graph shows selected context as separate badges, and context-conditioned evidence links label the context they use. Context never appears as a symptom circle. The evidence inspector shows context badges instead of clickable symptom controls. Changing context marks existing results as stale until discovery runs again.
 
-Single-symptom inference, the **All symptom paths** list, and the **Compare symptom likelihoods** table retain their symptom-only behavior; selected patient context applies only to combined graph inference.
+Single-symptom inference, the **All symptom paths** list, and the **Compare symptom likelihoods** table retain their symptom-only score/count calculations while respecting the gender-based symptom filter. Conditioning scores on selected patient context applies only to combined graph inference.
 
 ## Every individual symptom path
 
@@ -142,6 +160,14 @@ Extra symptoms in a record do not exclude it. For example, 8 records containing 
 The comparison looks up the exact canonical joint rule, such as `a|b -> x`. If that rule is missing, it displays **Not available**; it never substitutes 0% or multiplies separate pairwise probabilities. A dataset containing only single-symptom antecedents supports single-starting-symptom comparisons but cannot supply multi-symptom comparisons without joint counts from the backend. Recorded zero occurrences produce 0%; a zero antecedent denominator produces **No matching records**; contradictory counts produce **Inconsistent counts**.
 
 Targets exclude the starting symptoms. Results can be sorted by conditional likelihood or symptom name and are paginated at 15 rows. Graph thresholds, path depth, and graph candidate limits do not filter this table. **New exploration** clears comparison selections, and a dataset reload recalculates against the replacement data.
+
+## Top K complete combinations for RAG
+
+The top-right **Top K combinations** button opens a query list and generates suggestions from the current observed symptoms, selected context, gender filter, score threshold, depth, and inference mode. Choose K from 1 to 100 (default 10). Each row contains **all observed symptoms plus one additional candidate**, such as `[A, B, C, D]` and `[A, B, C, E]`; it does not replace observations or mix every candidate into one query.
+
+Candidates are ranked by the existing inference score across depths, with the existing evidence tie-breakers. A separate local worker collects all eligible candidates without the graph's per-depth top-K pruning; closing the dialog terminates that worker. Threshold, depth, cycle prevention, context rules, and the 250,000-combination work budget still apply. A safety cutoff is visibly marked as a partial search and retained in the export. Fewer than K rows may be returned if fewer candidates qualify. Scores are ranking heuristics, not probabilities of the complete combinations.
+
+**Copy query** copies one comma-separated symptom combination. **Copy queries** copies one combination per line. **JSON** downloads a structured payload containing observed symptoms, context separately, requested K, available count, completeness status, settings, and ranked combinations with `symptoms`, `addedSymptom`, `query`, canonical `key`, `score`, `depth`, and direct supporting evidence. No gender/history tokens are inserted into symptom arrays. No API re-fetch or RAG service call occurs; the output is ready for later retrieval integration.
 
 ## Network and controls
 
@@ -223,6 +249,8 @@ The tables below cover every source, test, asset, and project configuration file
 | --- | --- |
 | [src/inference/canonicalize.ts](src/inference/canonicalize.ts) | Normalize symptom names, produce sorted and deduplicated antecedent keys, and format symptom labels for display. |
 | [src/inference/context.ts](src/inference/context.ts) | Identify reserved gender/history context tokens and format separate patient-context labels. |
+| [src/inference/genderFilter.ts](src/inference/genderFilter.ts) | Read the selected gender and cache restricted dataset views from API symptom lists, filtering both rule antecedents and consequents while preserving counts and the original dataset. |
+| [src/inference/ragCombinations.ts](src/inference/ragCombinations.ts) | Build ranked, deduplicated observed-plus-one-candidate RAG query payloads, preserving context separately, inference scores, evidence, and search completeness. |
 | [src/inference/combinations.ts](src/inference/combinations.ts) | Generate antecedent combinations containing new/changed symptoms, with optional fixed context subsets and independent limits on symptom and context counts. |
 | [src/inference/scoring.ts](src/inference/scoring.ts) | Calculate empirical conditional confidence from occurrence counts, reject inconsistent counts, propagate scores, and rank evidence/candidates deterministically. |
 | [src/inference/engine.ts](src/inference/engine.ts) | Discover graph candidates through pairwise or combined rules; enforce score, depth, top-K, cycle, and work limits while retaining candidate evidence. |
@@ -244,6 +272,7 @@ The tables below cover every source, test, asset, and project configuration file
 | [src/components/results/InferenceResults.tsx](src/components/results/InferenceResults.tsx) | Group graph candidates by discovery depth and provide selectable rows for inspecting their evidence. |
 | [src/components/results/SymptomPaths.tsx](src/components/results/SymptomPaths.tsx) | Display individual symptom sequences with scores and link counts, paginate results, flag partial searches, and download the complete returned result as JSON. |
 | [src/components/results/SymptomComparison.tsx](src/components/results/SymptomComparison.tsx) | Let users select joint starting symptoms and targets, copy observations, and compare conditional likelihoods against overall frequencies with sorting, pagination, and explicit unavailable states. |
+| [src/components/results/RagCombinations.tsx](src/components/results/RagCombinations.tsx) | Provide the top K dialog with local candidate discovery, K selection, individual/bulk query copying, JSON export, cancellation, and partial-search notices. |
 
 ### Graph rendering and evidence
 
@@ -272,6 +301,8 @@ The tables below cover every source, test, asset, and project configuration file
 | [src/inference/canonicalize.test.ts](src/inference/canonicalize.test.ts) | Verify normalized symptom keys and unique, bounded antecedent combinations, including frontier filtering. |
 | [src/inference/engine.test.ts](src/inference/engine.test.ts) | Verify joint and pairwise inference, recursion, evidence ranking, counts-based confidence, cycle prevention, cancellation, and threshold/depth/top-K limits. |
 | [src/inference/inference.worker.test.ts](src/inference/inference.worker.test.ts) | Verify that worker messages carry observations and contexts separately, combined results use context, and individual paths remain symptom-only. |
+| [src/inference/genderFilter.test.ts](src/inference/genderFilter.test.ts) | Verify male/female/shared symptom eligibility, unrestricted and empty/missing-list behavior, caching, filtered search, and exclusion of invalid symptoms from candidates, paths, and comparisons. |
+| [src/inference/ragCombinations.test.ts](src/inference/ragCombinations.test.ts) | Verify complete observations in each query, ranking across depths, independence from graph candidate limits, deduplication, context separation, K validation, and truncation metadata. |
 | [src/inference/paths.test.ts](src/inference/paths.test.ts) | Verify complete ordered path enumeration on small networks, independent alternative routes, full-path thresholds, counts, cycle prevention, deduplication, cancellation, and explicit safety cutoffs. |
 | [src/inference/compareSymptoms.test.ts](src/inference/compareSymptoms.test.ts) | Verify joint conditioning, single-source comparisons, count-based likelihoods, baseline differences, normalized selections, and missing/zero/inconsistent data handling. |
 | [src/components/graph/buildGraph.test.ts](src/components/graph/buildGraph.test.ts) | Verify direct pairwise links, shared joint-rule diamonds, and graph filtering without dangling edges. |

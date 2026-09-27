@@ -183,18 +183,19 @@ button { color: inherit; }
 @media (max-width: 730px) { .comparison-section { padding: 16px; }.comparison-inputs { grid-template-columns: 1fr; }.comparison-input .search-field input { font-size: 16px; } }
 
 /* Patient context remains separate from symptom selectors and graph circles. */
-.patient-context { padding: 12px 0; border-top: 1px solid var(--border); margin-top: 7px; }
-.patient-context h3 { font-size: 14px; font-weight: 500; margin-bottom: 10px; }
-.patient-context h3>span { font-size: 11px; color: var(--subtle); margin-left: 7px; }
-.context-fields { display: grid; grid-template-columns: minmax(125px, 190px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.composer-input-heading { display: flex; justify-content: space-between; align-items: center; padding: 4px 3px 0; font-size: 12px; font-weight: 500; color: var(--text); }
+.composer-input-heading>span:last-child { font-size: 11px; color: var(--subtle); font-weight: 400; }
+.patient-context { padding: 11px 3px 12px; border-top: 1px solid var(--soft-border); margin-top: 4px; }
+.context-fields { display: grid; grid-template-columns: minmax(135px, 180px) minmax(0, 1fr); gap: 16px; align-items: start; }
 .context-field { min-width: 0; }
-.context-field>label { font-size: 13px; color: var(--muted); }
-.context-gender-select { position: relative; margin: 8px 0 0; }
-.context-gender-select select { appearance: none; width: 100%; padding: 11px 34px 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--page); color: var(--text); font-size: 13px; cursor: pointer; }
+.context-field>label { display: flex; align-items: baseline; gap: 7px; font-size: 12px; font-weight: 500; color: var(--muted); }
+.context-field>label>span { font-size: 10px; font-weight: 400; color: var(--subtle); }
+.context-gender-select { position: relative; margin: 6px 0 0; }
+.context-gender-select select { appearance: none; width: 100%; height: 38px; padding: 8px 32px 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; }
 .context-gender-select>svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
-.history-picker { position: relative; border: 1px solid var(--border); border-radius: 12px; background: var(--page); margin-top: 8px; }
+.history-picker { position: relative; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); margin-top: 6px; }
 .history-picker:focus-within { border-color: var(--accent); }
-.history-search { display: flex; align-items: center; gap: 9px; padding: 11px 12px; color: var(--subtle); }
+.history-search { display: flex; align-items: center; min-height: 36px; gap: 8px; padding: 8px 10px; color: var(--subtle); }
 .history-search input { width: 100%; min-width: 0; background: transparent; border: 0; outline: none; color: var(--text); font-size: 13px; }
 .history-search input::placeholder { color: var(--subtle); }
 .history-search .icon-button { width: 20px; height: 20px; flex-shrink: 0; }
@@ -209,9 +210,40 @@ button { color: inherit; }
 .history-suggestions li.active { background: var(--hover); }
 .history-suggestions li>svg { color: var(--subtle); flex-shrink: 0; }
 .history-empty { padding: 8px 7px 12px; font-size: 12px; color: var(--muted); line-height: 1.7; }
-@media (max-width: 730px) { .history-search input, .context-gender-select select { font-size: 16px; }.context-fields { grid-template-columns: minmax(105px, .8fr) minmax(0, 1.4fr); gap: 10px; }.history-chips { max-height: 70px; } }
+@media (max-width: 730px) { .history-search input, .context-gender-select select { font-size: 16px; }.context-fields { grid-template-columns: minmax(110px, .8fr) minmax(0, 1.4fr); gap: 10px; }.history-chips { max-height: 70px; }.context-field>label { font-size: 11px; gap: 4px; }.context-field>label>span { font-size: 9px; } }
 .context-badges { display: flex; flex-wrap: wrap; gap: 7px; }
 .context-badge { display: inline-block; padding: 4px 7px; background: var(--page); color: var(--muted); border: 1px solid var(--border); border-radius: 5px; font-size: 12px; }
-.patient-context>.field-hint { margin: 13px 0 0; }
+.patient-context>.field-hint { margin: 8px 0 0; font-size: 11px; }
 .graph-context { padding: 11px 18px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); flex-shrink: 0; max-height: 135px; overflow-y: auto; }
 .graph-context>.context-badges { margin-top: 8px; }
+
+.gender-filter-notice { font-size: 12px; line-height: 1.6; color: var(--muted); padding: 3px; margin: 4px 0 7px; }
+
+/* Complete observed-plus-candidate queries for downstream retrieval. */
+.rag-trigger { padding: 7px 11px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); font-size: 12px; white-space: nowrap; }
+.rag-trigger:hover:not(:disabled) { background: var(--hover); }
+.rag-dialog { width: min(780px, calc(100vw - 30px)); }
+.rag-observations { margin: 18px 0; padding: 14px; border: 1px solid var(--border); background: var(--page); border-radius: 9px; }
+.rag-observations>span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 7px; }
+.rag-observations>strong { display: block; font-size: 14px; font-weight: 500; line-height: 1.8; }
+.rag-observations>small { display: block; margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.7; }
+.rag-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.rag-controls label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.rag-controls input { width: 70px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--page); color: var(--text); }
+.rag-controls>span { font-size: 12px; color: var(--muted); }
+.rag-controls>.primary-button { margin-left: auto; }
+.rag-export { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin: 22px 0 12px; }
+.rag-export>span { margin-right: auto; font-size: 12px; color: var(--muted); }
+.rag-list { padding-left: 25px; margin: 0; }
+.rag-list li { padding: 16px 0 16px 6px; border-bottom: 1px solid var(--border); }
+.rag-list li::marker { color: var(--subtle); font-size: 12px; }
+.rag-query { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; line-height: 1.8; font-size: 14px; }
+.rag-query>span { overflow-wrap: anywhere; }
+.rag-query b, .rag-query strong { color: var(--accent); font-weight: 500; }
+.rag-query strong { white-space: nowrap; }
+.rag-row-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
+.rag-row-footer small { color: var(--subtle); font-size: 12px; }
+.rag-notice { font-size: 13px; line-height: 1.8; color: var(--muted); padding: 12px; margin: 13px 0; border: 1px solid var(--border); border-radius: 8px; }
+.rag-dialog>.rag-footnote { margin-top: 18px; font-size: 12px; color: var(--subtle); }
+@media (max-width: 1100px) { .rag-trigger>span { display: none; } }
+@media (max-width: 730px) { .rag-dialog { padding: 19px; }.rag-controls>.primary-button { margin-left: 0; }.rag-export>span { flex-basis: 100%; }.rag-controls input { font-size: 16px; } }

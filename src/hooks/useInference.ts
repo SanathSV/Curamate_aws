@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RulesOutput } from '../types/rules';
 import type { WorkerRequest, WorkerResponse } from '../inference/protocol';
 import type { InferenceOptions, InferenceResult } from '../types/inference';
-export function useInference(data: RulesOutput | null) {
+export function useInference(data: RulesOutput | null, collectAllCandidates = false) {
   const [result, setResult] = useState<InferenceResult | null>(null);
   const [running, setRunning] = useState(false);
   const [ready, setReady] = useState(false);
@@ -34,8 +34,8 @@ export function useInference(data: RulesOutput | null) {
   const run = useCallback((observations: string[], options: InferenceOptions, contexts: string[] = []) => {
     if (!worker.current || !ready) return;
     setRunning(true); setError(null);
-    worker.current.postMessage({ type: 'infer', id: ++currentId.current, observations, contexts, options } satisfies WorkerRequest);
-  }, [ready]);
+    worker.current.postMessage({ type: 'infer', id: ++currentId.current, observations, contexts, options, collectAllCandidates } satisfies WorkerRequest);
+  }, [ready, collectAllCandidates]);
   const clear = useCallback(() => {
     currentId.current++;
     worker.current?.postMessage({ type: 'cancel' } satisfies WorkerRequest);

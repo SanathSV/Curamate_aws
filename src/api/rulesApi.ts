@@ -9,6 +9,7 @@ import type {
   RulesMetadata,
   RulesOutput,
   SymptomFrequency,
+  ContextFrequency,
 } from '../types/rules';
 
 
@@ -393,6 +394,7 @@ export function parseRulesOutput(
   );
 
   const maxContextFeatures = optionalNumber(config.max_context_features, 'max_context_features', true);
+  const uniqueContextFeatures = optionalNumber(meta.unique_context_features, 'unique_context_features', true);
 
 
   if (
@@ -410,6 +412,7 @@ export function parseRulesOutput(
   const metadata: RulesMetadata = {
 
     transactions,
+    ...(uniqueContextFeatures === undefined ? {} : { unique_context_features: uniqueContextFeatures }),
 
     unique_symptoms:
       uniqueSymptoms,
@@ -707,7 +710,21 @@ export function parseRulesOutput(
   }
 
 
-  const contextFrequency: Record<string, SymptomFrequency> = Object.create(null);
+  const genderSymptoms: Pick<RulesOutput, 'male_symptoms' | 'female_symptoms'> = {};
+  for (const field of ['male_symptoms', 'female_symptoms'] as const) {
+    if (data[field] === undefined) continue;
+    if (!Array.isArray(data[field])) throw new Error(`Malformed dataset: ${field} must be an array.`);
+    const symptoms = data[field].map(value => {
+      const symptom = name(value, field);
+      if (isContextToken(symptom)) {
+        throw new Error(`Malformed dataset: ${field} must contain symptom names, not context tokens.`);
+      }
+      return symptom;
+    });
+    genderSymptoms[field] = [...new Set(symptoms)].sort();
+  }
+
+  const contextFrequency: Record<string, ContextFrequency> = Object.create(null);
   if (data.context_frequency !== undefined) {
     for (const [raw, value] of Object.entries(object(data.context_frequency, 'context_frequency'))) {
       const context = name(raw, 'context_frequency');
@@ -716,7 +733,13 @@ export function parseRulesOutput(
       }
       if (Object.hasOwn(contextFrequency, context)) throw new Error(`Malformed dataset: duplicate normalized context ${context}.`);
       const entry = object(value, context);
+      const contextType = context.startsWith('gender:') ? 'gender' : 'history';
+      const contextValue = entry.value === undefined ? undefined : name(entry.value, 'context value');
+      if (entry.type !== undefined && entry.type !== contextType) throw new Error(`Malformed dataset: context type does not match ${context}.`);
+      if (contextValue !== undefined && contextValue !== context.slice(context.indexOf(':') + 1)) throw new Error(`Malformed dataset: context value does not match ${context}.`);
       contextFrequency[context] = {
+        ...(entry.type === undefined ? {} : { type: contextType }),
+        ...(contextValue === undefined ? {} : { value: contextValue }),
         count: number(entry.count, 'context count', true, transactions),
         probability: number(entry.probability, 'context probability', false, 1),
       };
@@ -1028,6 +1051,7 @@ export function parseRulesOutput(
       frequency,
 
     ...(data.context_frequency === undefined ? {} : { context_frequency: contextFrequency }),
+    ...genderSymptoms,
 
     rules,
 

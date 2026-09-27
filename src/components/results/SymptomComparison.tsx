@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRightLeft } from 'lucide-react';
 import type { RulesOutput } from '../../types/rules';
 import type { Trie } from '../../trie/Trie';
@@ -14,6 +14,11 @@ export function SymptomComparison({ data, trie, observed }: { data: RulesOutput;
   const [targets, setTargets] = useState<string[]>([]);
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState<'likelihood' | 'name'>('likelihood');
+  useEffect(() => {
+    setStarting(previous => previous.filter(name => Object.hasOwn(data.symptom_frequency, name)));
+    setTargets(previous => previous.filter(name => Object.hasOwn(data.symptom_frequency, name)));
+    setPage(0);
+  }, [data]);
   // Successful reloads may change the catalog; discarded symptoms never reach the calculator.
   const validStarting = starting.filter(name => Object.hasOwn(data.symptom_frequency, name));
   const validTargets = targets.filter(name => Object.hasOwn(data.symptom_frequency, name) && !validStarting.includes(name));
@@ -29,7 +34,7 @@ export function SymptomComparison({ data, trie, observed }: { data: RulesOutput;
   function changeStarting(next: string[]) { setStarting(next); setTargets(previous => previous.filter(name => !next.includes(name))); setPage(0); }
   return <section id="symptom-comparison" className="comparison-section" aria-labelledby="comparison-title">
     <div className="paths-heading"><h2 id="comparison-title"><ArrowRightLeft size={18} />Compare symptom likelihoods</h2><button className="secondary-button" disabled={!observed.length} onClick={() => changeStarting([...observed])}>Use observed symptoms</button></div>
-    <p className="paths-description">Choose symptoms that occur together, then compare how often other symptoms occur in those same records. All starting symptoms are required; additional symptoms in a record are allowed. Patient-context settings do not apply to this symptom-only comparison.</p>
+    <p className="paths-description">Choose symptoms that occur together, then compare how often other symptoms occur in those same records. All starting symptoms are required; additional symptoms in a record are allowed. Gender filters the available symptoms. Probabilities still use the recorded symptom-only counts, without conditioning on gender or history.</p>
     <div className="comparison-inputs">
       <div className="comparison-input"><h3>Given all of these symptoms</h3><SymptomMultiSelect trie={trie} frequency={data.symptom_frequency} selected={validStarting} onChange={changeStarting} label="comparison starting symptoms" placeholder="Add A, B, …" /></div>
       <div className="comparison-input"><h3>Compare with these symptoms</h3><SymptomMultiSelect trie={trie} frequency={data.symptom_frequency} selected={validTargets} excludedSymptoms={validStarting} onChange={next => { setTargets(next.filter(name => !validStarting.includes(name))); setPage(0); }} label="comparison target symptoms" placeholder="Add target symptoms, or leave empty for all…" /><p className="field-hint">Leave empty to compare all other symptoms. Starting symptoms are excluded.</p></div>

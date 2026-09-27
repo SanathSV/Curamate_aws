@@ -4,6 +4,47 @@ import { parseRulesOutput } from './rulesApi';
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.resetModules(); });
 describe('dataset validation', () => {
+  it('normalizes and deduplicates male/female symptom lists without removing overlap', () => {
+    const input = dataset([[['a'], [rule('b', .8), rule('c', .7)]]]);
+    input.male_symptoms = [' A ', 'b', 'B']; input.female_symptoms = ['a', 'C'];
+    const parsed = parseRulesOutput(input);
+    expect(parsed.male_symptoms).toEqual(['a', 'b']);
+    expect(parsed.female_symptoms).toEqual(['a', 'c']);
+    expect(Object.keys(parsed.symptom_frequency)).toHaveLength(3);
+  });
+  it('allows absent or explicitly empty gender symptom lists', () => {
+    const input = dataset([[['a'], [rule('b', .8)]]]);
+    expect(parseRulesOutput(input).male_symptoms).toBeUndefined();
+    expect(parseRulesOutput({ ...input, male_symptoms: [], female_symptoms: [] }).male_symptoms).toEqual([]);
+  });
+  it.each([null, {}, 'a', [12], ['gender:male']].map(value => ({ value })))('rejects malformed gender symptom lists: $value', ({ value }) => {
+    const input = dataset([[['a'], [rule('b', .8)]]]);
+    expect(() => parseRulesOutput({ ...input, male_symptoms: value })).toThrow('male_symptoms');
+    expect(() => parseRulesOutput({ ...input, female_symptoms: value })).toThrow('female_symptoms');
+  });
+  it('accepts broader gender lists and preserves the supplied context entry structure', () => {
+    const input = contextDataset([[['fatigue', 'gender:male', 'history:asthma'], [rule('cough', .9)]]]);
+    input.male_symptoms = ['fatigue', 'cough', 'weak muscles'];
+    input.female_symptoms = ['fatigue', 'cough', 'nose running'];
+    input.metadata.unique_context_features = 2;
+    input.context_frequency = {
+      'gender:male': { type: 'gender', value: 'male', count: 315, probability: .315 },
+      'history:asthma': { type: 'history', value: 'asthma', count: 87, probability: .087 },
+    };
+    const parsed = parseRulesOutput(input);
+    expect(parsed.male_symptoms).toContain('weak muscles');
+    expect(parsed.female_symptoms).toContain('nose running');
+    expect(Object.keys(parsed.symptom_frequency).sort()).toEqual(['cough', 'fatigue']);
+    expect(parsed.metadata.unique_context_features).toBe(2);
+    expect(parsed.context_frequency).toEqual(input.context_frequency);
+  });
+  it('rejects context type/value metadata that disagrees with its token', () => {
+    const input = contextDataset([[['a', 'gender:male'], [rule('b', .8)]]]);
+    input.context_frequency!['gender:male'] = { type: 'history', value: 'male', count: 1, probability: .001 };
+    expect(() => parseRulesOutput(input)).toThrow('context type');
+    input.context_frequency!['gender:male'] = { type: 'gender', value: 'female', count: 1, probability: .001 };
+    expect(() => parseRulesOutput(input)).toThrow('context value');
+  });
   it('preserves legacy symptom-only datasets without context metadata', () => {
     const parsed = parseRulesOutput(dataset([[['a'], [rule('b', .8)]]]));
     expect(parsed.context_frequency).toBeUndefined();

@@ -10,7 +10,7 @@ type Known = { score: number; pathDepth: number; lineage: string[] };
 const MAX_COMBINATIONS = 250000;
 const BATCH_SIZE = 256;
 
-export async function infer(source: RuleSource, symptoms: string[], options: InferenceOptions, signal?: AbortSignal, contexts: string[] = []): Promise<InferenceResult> {
+export async function infer(source: RuleSource, symptoms: string[], options: InferenceOptions, signal?: AbortSignal, contexts: string[] = [], collectAllCandidates = false): Promise<InferenceResult> {
   const started = performance.now();
   if (!Number.isFinite(options.minScore) || options.minScore < 0 || options.minScore > 1 ||
     !Number.isInteger(options.maxDepth) || options.maxDepth < 1 || options.maxDepth > 6 ||
@@ -115,7 +115,7 @@ export async function infer(source: RuleSource, symptoms: string[], options: Inf
         known.set(symptom, { score: candidate.inferenceScore, pathDepth: bestEvidence.depth, lineage: bestEvidence.lineage });
       } else if (touched.has(symptom)) newCandidates.push(candidate);
     });
-    const additions = newCandidates.sort(compareCandidates).slice(0, options.topK);
+    const additions = newCandidates.sort(compareCandidates).slice(0, collectAllCandidates ? undefined : options.topK);
     additions.forEach(candidate => {
       accepted.set(candidate.symptom, candidate);
       known.set(candidate.symptom, { score: candidate.inferenceScore, pathDepth: candidate.bestEvidence.depth, lineage: candidate.bestEvidence.lineage });

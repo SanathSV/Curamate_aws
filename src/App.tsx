@@ -13,7 +13,10 @@ import { SymptomPaths } from './components/results/SymptomPaths';
 import { SymptomComparison } from './components/results/SymptomComparison';
 import { Methodology } from './components/Methodology';
 import { PatientContext } from './components/PatientContext';
+import { RagCombinations } from './components/results/RagCombinations';
 import { displayContext, isContextToken } from './inference/context';
+import { filterDatasetByGender, selectedGender } from './inference/genderFilter';
+import { createSymptomTrie } from './trie/symptomTrie';
 import { DEFAULT_OPTIONS } from './types/inference';
 import type { InferenceOptions } from './types/inference';
 import type { GraphHandle } from './types/graph';
@@ -27,12 +30,20 @@ export default function App() {
   const { theme, toggleTheme } = useTheme();
   const [observed, setObserved] = useState<string[]>([]);
   const [contexts, setContexts] = useState<string[]>([]);
+  const gender = selectedGender(contexts);
+  const visibleData = useMemo(() => rules.data ? filterDatasetByGender(rules.data, gender) : null, [rules.data, gender]);
+  const symptomTrie = useMemo(() => visibleData ? createSymptomTrie(visibleData.symptom_frequency) : null, [visibleData]);
+  const unavailableGenderSymptoms = gender && rules.data
+    ? (rules.data[gender === 'male' ? 'male_symptoms' : 'female_symptoms'] ?? []).filter(name => !Object.hasOwn(rules.data!.symptom_frequency, name)).length
+    : 0;
+  const [removedSymptoms, setRemovedSymptoms] = useState(0);
   const [options, setOptions] = useState<InferenceOptions>({ ...DEFAULT_OPTIONS });
   const [selected, setSelected] = useState<string | null>(null);
   const [visibleDepth, setVisibleDepth] = useState(3);
   const [viewScore, setViewScore] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [methodology, setMethodology] = useState(false);
+  const [ragOpen, setRagOpen] = useState(false);
   const [graphExpanded, setGraphExpanded] = useState(false);
   const [comparisonSession, setComparisonSession] = useState(0);
   const settings = useRef<HTMLDetailsElement>(null);
@@ -46,7 +57,7 @@ export default function App() {
   const dirty = !!result && (canonicalKey(observed) !== canonicalKey(result.observed) || canonicalKey(contexts) !== canonicalKey(result.contexts) || JSON.stringify(options) !== JSON.stringify(result.options));
   const highestDepth = result?.options.maxDepth ?? options.maxDepth;
   const visibleCount = candidates.filter(candidate => candidate.depth <= visibleDepth && candidate.inferenceScore >= viewScore).length;
-  const suggested = useMemo(() => rules.trie?.search('', 4, new Set(observed)) ?? [], [rules.trie, observed]);
+  const suggested = useMemo(() => symptomTrie?.search('', 4, new Set(observed)) ?? [], [symptomTrie, observed]);
   const run = () => {
     if (rules.loading || !inference.ready || !observed.length) return;
     setSelected(null); setVisibleDepth(options.maxDepth); setViewScore(0);
@@ -64,15 +75,16 @@ export default function App() {
   const clear = () => {
     inference.clear(); setObserved([]); setSelected(null); setVisibleDepth(options.maxDepth); setViewScore(0);
     setContexts([]);
+    setRemovedSymptoms(0);
     setComparisonSession(value => value + 1);
     thread.current?.scrollTo({ top: 0 });
   };
   useEffect(() => { setSelected(null); }, [result]);
   useEffect(() => {
-    if (rules.data) setObserved(previous => previous.filter(symptom => Object.hasOwn(rules.data!.symptom_frequency, symptom)));
+    if (visibleData) setObserved(previous => previous.filter(symptom => Object.hasOwn(visibleData.symptom_frequency, symptom)));
     if (rules.data) setContexts(previous => previous.filter(token => Object.hasOwn(rules.data!.context_frequency ?? {}, token)));
     setSelected(null);
-  }, [rules.data]);
+  }, [rules.data, visibleData]);
   useEffect(() => {
     if (!graphExpanded) return;
     const restore = (event: KeyboardEvent) => { if (event.key === 'Escape') setGraphExpanded(false); };
@@ -87,8 +99,17 @@ export default function App() {
     return () => document.removeEventListener('pointerdown', dismiss);
   }, []);
   function changeObserved(next: string[]) {
-    setObserved(next);
+    setObserved(next.filter(symptom => visibleData && Object.hasOwn(visibleData.symptom_frequency, symptom)));
     if (!result && selected && !next.includes(selected)) setSelected(null);
+  }
+  function changeContexts(next: string[]) {
+    if (selectedGender(next) !== gender) {
+      const filtered = rules.data ? filterDatasetByGender(rules.data, selectedGender(next)) : null;
+      const kept = observed.filter(symptom => filtered && Object.hasOwn(filtered.symptom_frequency, symptom));
+      setRemovedSymptoms(observed.length - kept.length);
+      setObserved(kept); setSelected(null); inference.clear();
+    }
+    setContexts(next);
   }
   const status = rules.loading ? 'Loading dataset…' : rules.error ? rules.data ? 'Using cached dataset' : 'Dataset offline' : inference.ready ? 'Dataset in memory' : 'Preparing engine…';
   return <div className={'console-shell' + (graphExpanded ? ' graph-expanded' : '')}>
@@ -116,6 +137,7 @@ export default function App() {
       <header className="console-header">
         <div className="console-title"><span className="mobile-brand"><Activity size={19} />CuraMate<span>/</span></span><h1>Symptom explorer</h1><span className="research-label">Research</span></div>
         <div className="header-actions"><span className={'dataset-status ' + (rules.error ? 'offline' : '')}><span className="status-dot" />{status}</span>
+          <button className="rag-trigger" disabled={!rules.data || rules.loading || inference.running} onClick={() => setRagOpen(true)} title="Generate complete symptom combinations for RAG queries">Top K <span>combinations</span></button>
           <button className="reload-dataset" disabled={rules.loading || inference.running} onClick={rules.reload} title="Make one new API request and replace the cached dataset" aria-label="Reload dataset"><RotateCcw size={15} className={rules.loading ? 'spin' : ''} /><span>Reload dataset</span></button>
           <button className="icon-button mobile-theme" aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={toggleTheme}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
           <button className="icon-button mobile-new" aria-label="New exploration" onClick={clear}><Plus size={19} /></button>
@@ -143,11 +165,11 @@ export default function App() {
               <div className="graph-bottom"><GraphControls graph={graph} disabled={!graphObserved.length} zoom={zoom} /><span className="graph-hint">{result ? visibleCount + ' candidates' : 'Scroll to zoom · drag to pan'}</span></div>
             </div>
             <div className="graph-legend"><span><i className="legend-dot observed-dot" />Observed</span><span><i className="legend-dot latent-dot" />Candidate</span><span>Link labels = direct confidence</span>{(result?.options.associationMode ?? options.associationMode) !== 'pairwise' && <span><i className="legend-diamond" />Joint rule</span>}{selected && <button className="text-button" onClick={() => setSelected(null)}><X size={12} />Clear selection</button>}{!selected && <span className="graph-selection-hint">Select a node for evidence</span>}</div>
-            {(result?.contexts ?? contexts).length > 0 && <div className="graph-context"><span>Patient context{(result?.options.associationMode ?? options.associationMode) === 'pairwise' ? ' · not used in single-symptom mode' : ''}</span><div className="context-badges">{(result?.contexts ?? contexts).map(token => <span className="context-badge" key={token}>{displayContext(token)}</span>)}</div></div>}
+            {(result?.contexts ?? contexts).length > 0 && <div className="graph-context"><span>Patient context{(result?.options.associationMode ?? options.associationMode) === 'pairwise' ? ' · gender filters symptoms; context does not condition scores' : ''}</span><div className="context-badges">{(result?.contexts ?? contexts).map(token => <span className="context-badge" key={token}>{displayContext(token)}</span>)}</div></div>}
             {graphExpanded && selectedCandidate && <div className="expanded-evidence"><strong>{displaySymptom(selectedCandidate.symptom)}</strong><span>Score {percent(selectedCandidate.inferenceScore)} · {selectedCandidate.bestEvidence.antecedents.map(token => isContextToken(token) ? displayContext(token) : displaySymptom(token)).join(' + ')} → {displaySymptom(selectedCandidate.symptom)}</span><span>Direct confidence {percent(selectedCandidate.bestEvidence.rule.confidence, 1)} · {formatNumber(selectedCandidate.bestEvidence.rule.occurrences)} / {formatNumber(selectedCandidate.bestEvidence.rule.antecedent_occurrences)} records</span></div>}
           </section>
           {dirty && <div className="stale-results" role="status"><span>Your observations or settings have changed.</span><button className="text-button" onClick={run} disabled={!observed.length || inference.running || rules.loading}>Update network <RotateCcw size={13} /></button></div>}
-          {rules.data && rules.trie && <SymptomComparison key={comparisonSession} data={rules.data} trie={rules.trie} observed={observed} />}
+          {visibleData && symptomTrie && <SymptomComparison key={comparisonSession} data={visibleData} trie={symptomTrie} observed={observed} />}
           {result && <InferenceResults result={result} selected={selected} onSelect={selectSymptom} visibleDepth={visibleDepth} />}
           {result?.paths && <SymptomPaths key={JSON.stringify([result.observed, result.options])} result={result.paths} observed={result.observed} />}
           {(selectedCandidate || selectedObserved) && <NodeDetails candidate={selectedCandidate} observed={selectedObserved} frequency={selectedObserved ? rules.data?.symptom_frequency[selectedObserved] : undefined} onSelect={selectSymptom} onClose={() => setSelected(null)} />}
@@ -159,8 +181,12 @@ export default function App() {
       <div className="composer-dock"><div className="composer-wrapper">
         {!result && suggested.length > 0 && <div className="suggested-symptoms"><span>Quick add</span>{suggested.map(symptom => <button key={symptom} disabled={inference.running} onClick={() => changeObserved([...observed, symptom])}><Plus size={12} />{displaySymptom(symptom)}</button>)}</div>}
         <div className="composer">
-          {rules.loading ? <div className="composer-loading"><LoaderCircle className="spin" size={18} /><span>Loading available symptoms…</span></div> : <SymptomMultiSelect trie={rules.trie} frequency={rules.data?.symptom_frequency ?? EMPTY_FREQUENCY} selected={observed} onChange={changeObserved} disabled={!rules.data || inference.running} />}
-          {rules.data?.context_frequency && <PatientContext frequency={rules.data.context_frequency} contexts={contexts} onChange={setContexts} disabled={rules.loading || inference.running} combined={options.associationMode !== 'pairwise'} />}
+          <div className="composer-input-heading"><span>Symptoms</span><span>{gender ? displaySymptom(gender) + ' · ' + Object.keys(visibleData?.symptom_frequency ?? {}).length + ' available' : observed.length ? observed.length + ' selected · all symptoms' : 'All symptoms'}</span></div>
+          {rules.loading ? <div className="composer-loading"><LoaderCircle className="spin" size={18} /><span>Loading available symptoms…</span></div> : <SymptomMultiSelect trie={symptomTrie} frequency={visibleData?.symptom_frequency ?? EMPTY_FREQUENCY} selected={observed} onChange={changeObserved} disabled={!rules.data || inference.running} />}
+          {gender && rules.data?.[gender === 'male' ? 'male_symptoms' : 'female_symptoms'] === undefined && <p className="gender-filter-notice" role="status">The API has no {gender} symptom list; showing all symptoms.</p>}
+          {unavailableGenderSymptoms > 0 && <p className="gender-filter-notice" role="status">{unavailableGenderSymptoms} names in the {gender} list have no symptom-frequency data and are unavailable for exploration.</p>}
+          {removedSymptoms > 0 && <p className="gender-filter-notice" role="status">Removed {removedSymptoms} selected {removedSymptoms === 1 ? 'symptom' : 'symptoms'} outside the new gender list.</p>}
+          {rules.data?.context_frequency && <PatientContext frequency={rules.data.context_frequency} contexts={contexts} onChange={changeContexts} disabled={rules.loading || inference.running} combined={options.associationMode !== 'pairwise'} />}
           <div className="composer-actions">
             <details className="settings-menu" ref={settings} onKeyDown={event => { if (event.key === 'Escape' && settings.current) settings.current.open = false; }}><summary><SlidersHorizontal size={16} />Settings<ChevronDown size={12} /></summary><div className="settings-popover"><InferenceControls options={options} onChange={setOptions} disabled={!rules.data || inference.running} /></div></details>
             <span className="settings-summary">{percent(options.minScore)} minimum <span>·</span> depth {options.maxDepth}</span>
@@ -171,5 +197,6 @@ export default function App() {
       </div></div>
     </main>
     <Methodology open={methodology} onClose={() => setMethodology(false)} />
+    {ragOpen && rules.data && <RagCombinations data={rules.data} observed={observed} contexts={contexts} options={options} onClose={() => setRagOpen(false)} />}
   </div>;
 }

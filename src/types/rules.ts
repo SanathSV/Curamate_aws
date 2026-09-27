@@ -8,9 +8,14 @@ export interface Rule {
   consequent_occurrences: number;
 }
 export interface SymptomFrequency { count: number; probability: number }
+export interface ContextFrequency extends SymptomFrequency {
+  type?: 'gender' | 'history';
+  value?: string;
+}
 export interface RulesMetadata {
   transactions: number;
   unique_symptoms: number;
+  unique_context_features?: number;
   antecedent_keys: number;
   rules_saved: number;
   source_bucket?: string;
@@ -30,7 +35,9 @@ export interface RulesMetadata {
 export interface RulesOutput {
   metadata: RulesMetadata;
   symptom_frequency: Record<string, SymptomFrequency>;
-  context_frequency?: Record<string, SymptomFrequency>;
+  context_frequency?: Record<string, ContextFrequency>;
+  male_symptoms?: string[];
+  female_symptoms?: string[];
   rules: Record<string, Rule[]>;
 }
 export type RulesCatalog = Omit<RulesOutput, 'rules'>;
