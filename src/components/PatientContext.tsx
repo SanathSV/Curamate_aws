@@ -66,6 +66,6 @@ export function PatientContext({ frequency, contexts, onChange, disabled, combin
     </div>
     </div></div>
     <span className="sr-only" role="status">{selectedHistory.length} history items selected{expanded ? ', ' + matches.length + ' suggestions available' : ''}</span>
-    {contexts.length > 0 && <p className="field-hint">{combined ? 'Patient context included' : 'Gender filters symptoms. Use Combined symptoms in Settings for context-conditioned rules.'}</p>}
+    {contexts.length > 0 && <p className="field-hint">{combined ? 'Patient context included' : 'Gender filters symptoms. Choose Combined to condition latent rules on history.'}</p>}
   </section>;
 }

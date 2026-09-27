@@ -23,7 +23,7 @@ function graphStyles(theme: Theme): StylesheetJson {
     shape: 'diamond', width: 17, height: 17, 'background-color': dark ? '#25292c' : '#fff', 'border-color': dark ? '#b0bfba' : '#648377',
     'border-width': 1.8, label: 'data(label)', color: dark ? '#d1dbd6' : '#456456', 'font-family': 'DM Sans Variable, sans-serif',
     'font-size': 12, 'text-valign': 'top', 'text-margin-y': -6, 'overlay-opacity': 0, 'text-wrap': 'wrap', 'text-max-width': '200px',
-    'text-background-color': dark ? '#1b1e20' : '#fbfcfd', 'text-background-opacity': 1, 'text-background-padding': '3px',
+    'text-background-color': dark ? '#1c282b' : '#f5f9f9', 'text-background-opacity': 1, 'text-background-padding': '3px',
   } },
   { selector: 'edge', style: {
     width: 1.8, 'line-color': dark ? '#869a91' : '#718a80', 'target-arrow-color': dark ? '#869a91' : '#718a80', 'curve-style': 'bezier',
@@ -32,7 +32,7 @@ function graphStyles(theme: Theme): StylesheetJson {
   { selector: 'edge.consequent', style: { 'target-arrow-shape': 'triangle' } },
   { selector: 'edge.pairwise', style: {
     label: 'data(label)', color: dark ? '#d1dbd6' : '#456456', 'font-size': 12, 'text-wrap': 'wrap', 'text-max-width': '200px',
-    'font-family': 'DM Sans Variable, sans-serif', 'text-background-color': dark ? '#1b1e20' : '#fbfcfd',
+    'font-family': 'DM Sans Variable, sans-serif', 'text-background-color': dark ? '#1c282b' : '#f5f9f9',
     'text-background-opacity': 1, 'text-background-padding': '4px', 'text-margin-y': -10,
   } },
   { selector: 'edge.secondary', style: { 'line-style': 'dashed', 'line-opacity': 1, width: 1.6 } },

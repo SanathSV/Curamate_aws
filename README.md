@@ -1,6 +1,6 @@
 # CuraMate — Latent Symptom Intelligence
 
-A static React application for exploring association-derived latent symptom candidates and their evidence paths. It is a research/decision-support visualization, not a diagnosis system.
+A static React application that combines local latent symptom exploration with API-provided diagnostic candidates in a single analysis workspace. Decision-support output requires clinician review.
 
 ## Run locally
 
@@ -32,7 +32,7 @@ Browser → GET VITE_RULES_API_URL → existing API Gateway / Lambda
 
 Response → validation / canonicalization → memory
                                          ├─ one Trie for symptom search
-                                         └─ one Web Worker for local inference
+                                         └─ Web Workers for graph and combination inference
 ```
 
 `fetchRules(): Promise<RulesOutput>` in `src/api/rulesApi.ts` shares a module-level promise. Concurrent callers, completed callers, and React StrictMode remounts reuse that promise. Selecting symptoms, changing settings, and running inference never trigger a new dataset request. **Reload dataset** explicitly calls `reloadRules()` to make one fresh API request, even after a successful load; simultaneous reloads share the in-flight request. A rejected request remains cached until an explicit retry/reload. Requests time out after 30 seconds.
@@ -167,7 +167,35 @@ The top-right **Top K combinations** button opens a query list and generates sug
 
 Candidates are ranked by the existing inference score across depths, with the existing evidence tie-breakers. A separate local worker collects all eligible candidates without the graph's per-depth top-K pruning; closing the dialog terminates that worker. Threshold, depth, cycle prevention, context rules, and the 250,000-combination work budget still apply. A safety cutoff is visibly marked as a partial search and retained in the export. Fewer than K rows may be returned if fewer candidates qualify. Scores are ranking heuristics, not probabilities of the complete combinations.
 
-**Copy query** copies one comma-separated symptom combination. **Copy queries** copies one combination per line. **JSON** downloads a structured payload containing observed symptoms, context separately, requested K, available count, completeness status, settings, and ranked combinations with `symptoms`, `addedSymptom`, `query`, canonical `key`, `score`, `depth`, and direct supporting evidence. No gender/history tokens are inserted into symptom arrays. No API re-fetch or RAG service call occurs; the output is ready for later retrieval integration.
+**Copy query** copies one comma-separated symptom combination. **Copy queries** copies one combination per line. **JSON** downloads a structured payload containing observed symptoms, context separately, requested K, available count, completeness status, settings, and ranked combinations with `symptoms`, `addedSymptom`, `query`, canonical `key`, `score`, `depth`, and direct supporting evidence. No gender/history tokens are inserted into symptom arrays. Generating or exporting combinations does not re-fetch rules or contact a RAG service. Diagnosis submission is a separate explicit action below.
+
+## Diagnosis API request and results
+
+Set the public Lambda 3 endpoint as `VITE_DIAGNOSIS_API_URL` in `.env.local`, then restart development or rebuild. In CI, set the repository variable with the same name. The API must accept JSON POST requests and allow the frontend origin and `Content-Type` header through CORS. The frontend does not implement diagnostic scoring or access backend model artifacts.
+
+For the primary workflow, press **Analyze** in the main composer: local inference automatically leads to one diagnosis request. The optional advanced workflow remains under **Top K combinations**: generate latent additions and use the diagnostic candidate section below the list. **Latent additions (K)** limits suggested symptom combinations; **Diagnoses per combination** independently sets `diagnosis_top_k` (default 3, any positive safe integer). Changing one does not change the other. **Request diagnostic candidates** makes one POST request; no request is triggered automatically by opening the dialog, generating combinations, or changing controls. **Request JSON** downloads the exact body for inspection even when the endpoint is not configured.
+
+The request has exactly these five fields:
+
+```json
+{
+  "current_symptoms": ["A", "B", "C"],
+  "gender": "female",
+  "history": ["HIV", "autoimmune disease"],
+  "diagnosis_top_k": 3,
+  "symptom_combinations": [
+    ["A", "B", "C"],
+    ["A", "B", "C", "D"],
+    ["A", "B", "C", "E"]
+  ]
+}
+```
+
+`current_symptoms` preserves the original selected symptoms and their order. The first combination always contains only those symptoms. Subsequent deduplicated combinations use the existing latent-combination function, retaining every original symptom. With no qualifying latent symptoms, only the original combination is sent. Gender/history use plain values without context prefixes; unspecified gender is sent as `null`, and no history as `[]`. The body contains no inference scores, internal row identifiers, or model metadata.
+
+The response parser accepts the documented `results` array (or an API Gateway body envelope), validates the supplied ranks/probabilities/percentages, and checks that each `combination_index` and symptom set match the submitted combinations. The UI shows one section per submitted combination, including explicit empty or missing-result states. **Overall Best Candidates** flattens the returned diagnoses, sorts by API-provided `probability` descending, retains the highest-probability occurrence of each diagnosis, and shows the source combination and symptoms. Percentages are displayed from the API response; no diagnostic score is calculated or accumulated in the frontend. Backend metadata is retained in the parsed response but not shown to the doctor.
+
+Doctor-facing output is labeled **Model-ranked diagnostic candidates**, **Based on symptom combination**, **Decision-support output**, and **Requires clinician review**. The UI handles loading, cancellation, missing endpoint configuration, HTTP/network errors, invalid responses, and a 60-second request timeout without automatic retries. Changing request inputs or closing the dialog cancels in-flight work and prevents stale responses from being displayed. Submitted symptom/context data and diagnostic results are not persisted in browser storage.
 
 ## Network and controls
 
@@ -237,8 +265,10 @@ The tables below cover every source, test, asset, and project configuration file
 | File | Objective |
 | --- | --- |
 | [src/api/rulesApi.ts](src/api/rulesApi.ts) | Fetch and validate the API dataset, unwrap supported API Gateway responses, normalize rules, cache requests, support manual reload, and expose `RuleSource` / `InMemoryRuleSource` for local rule lookup. |
+| [src/api/diagnosisApi.ts](src/api/diagnosisApi.ts) | POST the prepared named-symptom request to Lambda 3 and validate its response against submitted combinations, with timeout, cancellation, and readable service errors. |
 | [src/hooks/useRules.ts](src/hooks/useRules.ts) | Connect dataset loading to React: expose data, loading/errors, loaded time, retry/reload actions, and the symptom Trie; preserve the previous dataset if reload fails. |
 | [src/hooks/useInference.ts](src/hooks/useInference.ts) | Create and initialize the worker, submit discovery requests, receive results/errors, reject stale responses, and support cancellation and cleanup. |
+| [src/hooks/useDiagnosis.ts](src/hooks/useDiagnosis.ts) | Submit diagnosis requests only on explicit action, prevent duplicate in-flight submissions, cancel obsolete work, and keep responses associated with their exact request. |
 | [src/hooks/useTheme.ts](src/hooks/useTheme.ts) | Switch between dark and light themes, update browser theme metadata, and persist the theme preference in localStorage. |
 | [src/trie/Trie.ts](src/trie/Trie.ts) | Implement prefix search with frequency-ranked suggestions, duplicate prevention, result limits, and exclusion of already selected symptoms. |
 | [src/trie/symptomTrie.ts](src/trie/symptomTrie.ts) | Build a Trie from dataset symptom frequencies and reuse it while the same frequency object remains loaded. |
@@ -251,6 +281,7 @@ The tables below cover every source, test, asset, and project configuration file
 | [src/inference/context.ts](src/inference/context.ts) | Identify reserved gender/history context tokens and format separate patient-context labels. |
 | [src/inference/genderFilter.ts](src/inference/genderFilter.ts) | Read the selected gender and cache restricted dataset views from API symptom lists, filtering both rule antecedents and consequents while preserving counts and the original dataset. |
 | [src/inference/ragCombinations.ts](src/inference/ragCombinations.ts) | Build ranked, deduplicated observed-plus-one-candidate RAG query payloads, preserving context separately, inference scores, evidence, and search completeness. |
+| [src/inference/diagnosisRequest.ts](src/inference/diagnosisRequest.ts) | Build the exact diagnosis payload with the original combination first and independently controlled diagnosis K; aggregate API-provided candidates by their highest probability and retain source combinations. |
 | [src/inference/combinations.ts](src/inference/combinations.ts) | Generate antecedent combinations containing new/changed symptoms, with optional fixed context subsets and independent limits on symptom and context counts. |
 | [src/inference/scoring.ts](src/inference/scoring.ts) | Calculate empirical conditional confidence from occurrence counts, reject inconsistent counts, propagate scores, and rank evidence/candidates deterministically. |
 | [src/inference/engine.ts](src/inference/engine.ts) | Discover graph candidates through pairwise or combined rules; enforce score, depth, top-K, cycle, and work limits while retaining candidate evidence. |
@@ -273,6 +304,8 @@ The tables below cover every source, test, asset, and project configuration file
 | [src/components/results/SymptomPaths.tsx](src/components/results/SymptomPaths.tsx) | Display individual symptom sequences with scores and link counts, paginate results, flag partial searches, and download the complete returned result as JSON. |
 | [src/components/results/SymptomComparison.tsx](src/components/results/SymptomComparison.tsx) | Let users select joint starting symptoms and targets, copy observations, and compare conditional likelihoods against overall frequencies with sorting, pagination, and explicit unavailable states. |
 | [src/components/results/RagCombinations.tsx](src/components/results/RagCombinations.tsx) | Provide the top K dialog with local candidate discovery, K selection, individual/bulk query copying, JSON export, cancellation, and partial-search notices. |
+| [src/components/results/DiagnosisPanel.tsx](src/components/results/DiagnosisPanel.tsx) | Provide the separate diagnoses-per-combination control, explicit API submission, request JSON download, and loading/error/configuration states. |
+| [src/components/results/DiagnosisResults.tsx](src/components/results/DiagnosisResults.tsx) | Display API candidates per submitted symptom combination and the deduplicated Overall Best Candidates with source symptoms and clinician-review wording. |
 
 ### Graph rendering and evidence
 
@@ -288,6 +321,7 @@ The tables below cover every source, test, asset, and project configuration file
 | File | Objective |
 | --- | --- |
 | [src/types/rules.ts](src/types/rules.ts) | Describe API rules, occurrence counts, separate symptom/context frequency catalogs, metadata/configuration (including context limits), and the complete dataset shape. |
+| [src/types/diagnosis.ts](src/types/diagnosis.ts) | Define the diagnosis request, Lambda 3 response, per-combination candidates, and overall candidate types. |
 | [src/types/inference.ts](src/types/inference.ts) | Describe inference settings, evidence, candidates, and results, including optional path-search results; define default settings. |
 | [src/types/graph.ts](src/types/graph.ts) | Define the graph handle used by controls to fit, center, reset, zoom, or focus the graph. |
 
@@ -297,12 +331,14 @@ The tables below cover every source, test, asset, and project configuration file
 | --- | --- |
 | [src/test/fixtures.ts](src/test/fixtures.ts) | Create small synthetic rules and datasets for repeatable tests without calling the live API. |
 | [src/api/rulesApi.test.ts](src/api/rulesApi.test.ts) | Verify response validation, optional/numeric metadata handling, wrapped responses, request caching, retry, and manual reload behavior. |
+| [src/api/diagnosisApi.test.ts](src/api/diagnosisApi.test.ts) | Verify the exact POST body, missing configuration, cancellation, response matching/validation, gateway envelopes, and errors without live API requests. |
 | [src/trie/Trie.test.ts](src/trie/Trie.test.ts) | Verify prefix matching, frequency ordering, normalization, exclusions, and reuse of the dataset search index. |
 | [src/inference/canonicalize.test.ts](src/inference/canonicalize.test.ts) | Verify normalized symptom keys and unique, bounded antecedent combinations, including frontier filtering. |
 | [src/inference/engine.test.ts](src/inference/engine.test.ts) | Verify joint and pairwise inference, recursion, evidence ranking, counts-based confidence, cycle prevention, cancellation, and threshold/depth/top-K limits. |
 | [src/inference/inference.worker.test.ts](src/inference/inference.worker.test.ts) | Verify that worker messages carry observations and contexts separately, combined results use context, and individual paths remain symptom-only. |
 | [src/inference/genderFilter.test.ts](src/inference/genderFilter.test.ts) | Verify male/female/shared symptom eligibility, unrestricted and empty/missing-list behavior, caching, filtered search, and exclusion of invalid symptoms from candidates, paths, and comparisons. |
 | [src/inference/ragCombinations.test.ts](src/inference/ragCombinations.test.ts) | Verify complete observations in each query, ranking across depths, independence from graph candidate limits, deduplication, context separation, K validation, and truncation metadata. |
+| [src/inference/diagnosisRequest.test.ts](src/inference/diagnosisRequest.test.ts) | Verify preservation of original symptoms, baseline-only fallback, combination deduplication, independent diagnosis K, and highest-probability aggregation with correct provenance. |
 | [src/inference/paths.test.ts](src/inference/paths.test.ts) | Verify complete ordered path enumeration on small networks, independent alternative routes, full-path thresholds, counts, cycle prevention, deduplication, cancellation, and explicit safety cutoffs. |
 | [src/inference/compareSymptoms.test.ts](src/inference/compareSymptoms.test.ts) | Verify joint conditioning, single-source comparisons, count-based likelihoods, baseline differences, normalized selections, and missing/zero/inconsistent data handling. |
 | [src/components/graph/buildGraph.test.ts](src/components/graph/buildGraph.test.ts) | Verify direct pairwise links, shared joint-rule diamonds, and graph filtering without dangling edges. |
@@ -334,3 +370,28 @@ The tables below cover every source, test, asset, and project configuration file
 Edit source/configuration files rather than generated output, then rebuild `dist/` when preparing a release.
 
 Tests cover canonicalization, frequency-ranked Trie search, combinations, direct and recursive inference, joint antecedents, cycle prevention, multiple paths, score improvements, threshold/top-K/depth limits, deterministic ranking, cancellation, malformed responses, one-request caching, explicit retry, and rule-diamond graph semantics.
+
+
+## One-click analysis workspace
+
+Select symptoms, optional gender and history, then press **Analyze**. The left panel shows the existing association graph; the right shows API-provided diagnostic candidates, both overall and per symptom combination. On narrow screens these panels stack. Graph expansion and evidence inspection remain available. Comparison and path tools are collapsed to keep the main view focused. The **Glass** header button toggles optional translucent tiles without changing results.
+
+One click starts two local worker searches: the existing graph search keeps its candidate-per-depth limit, while the combination search collects all eligible candidates before applying its separate latent-combination limit. Once combinations are ready, exactly one diagnosis POST is made. The original symptom combination is always included, even when no latent candidates qualify. The composer toolbar exposes **Latent K** (default 10) separately from **Diagnosis K** (default 3 diagnoses per combination), alongside the Pairwise/Combined toggle and minimum path score. **More** contains depth and graph limits. Symptoms, gender and history align in one desktop row and stack on smaller screens; selected chips have bounded scrolling. No diagnosis request is sent on page load or ordinary input edits. Failed requests are not automatically retried.
+
+**Stop analysis** cancels pending inference and aborts the diagnosis request; late responses are ignored. New exploration and input changes clear diagnostic results. Existing inference/path mathematics and the API payload contract are unchanged. No backend model files are accessed by the frontend.
+
+| File | Objective |
+| --- | --- |
+| `src/hooks/useAnalytics.ts` | Coordinate a user-triggered combination search and one diagnosis request, keeping input snapshots, progress, cancellation and stale-response protection. |
+| `src/hooks/useAnalytics.test.ts` | Verify one POST per run, separate limits, original-only fallback, cancellation and error recovery under React Strict Mode. |
+| `src/App.tsx` | Present the split analytics workspace, shared Analyze/Stop actions, patient composer, limits and glass toggle. |
+| `src/styles.css` | Responsive split panels, progress/empty states, optional glass tiles and full-workspace graph styling. |
+
+The Top K combinations dialog remains available for advanced query exports and its separate manual diagnosis workflow.
+
+
+### Review layout and appearance
+
+On desktop, the symptom-evidence and diagnostic-candidate columns scroll independently within the viewport. Each pane is keyboard-focusable, has a sticky heading, and contains its own scroll at the boundary. Analyze and New exploration reset both scroll positions; arriving results do not automatically move the clinician's reading position. The patient composer remains accessible below the panes. Mobile uses a single page scroll, and short mobile viewports allow the full layout to scroll so inputs remain reachable.
+
+Dark and light themes share a muted teal-gray palette across the workspace, graph label backgrounds, cards, and browser theme color. Reduced-motion and reduced-transparency preferences are respected. These changes affect presentation only; inference and diagnosis request behavior are unchanged.

@@ -7,6 +7,7 @@ import { buildRagCombinations } from '../../inference/ragCombinations';
 import { canonicalKey, displaySymptom } from '../../inference/canonicalize';
 import { displayContext } from '../../inference/context';
 import { percent } from '../../utils/format';
+import { DiagnosisPanel } from './DiagnosisPanel';
 
 interface Props { data: RulesOutput; observed: string[]; contexts: string[]; options: InferenceOptions; onClose: () => void }
 export function RagCombinations({ data, observed, contexts, options, onClose }: Props) {
@@ -49,7 +50,7 @@ export function RagCombinations({ data, observed, contexts, options, onClose }: 
     <h2 id="rag-title">Top K symptom combinations</h2>
     <p>Each query keeps every observed symptom and adds one suggested symptom. Ranked by inference score, not joint probability.</p>
     <div className="rag-observations"><span>Observed symptoms</span><strong>{observed.length ? observed.map(displaySymptom).join(' + ') : 'Select symptoms in the composer first.'}</strong>{contexts.length > 0 && <small>Context: {contexts.map(displayContext).join(' · ')} · exported separately</small>}</div>
-    <div className="rag-controls"><label htmlFor="rag-top-k">Top K <input id="rag-top-k" type="number" min="1" max="100" step="1" value={topK} onChange={event => setTopK(event.target.value)} aria-invalid={!validK} /></label>
+    <div className="rag-controls"><label htmlFor="rag-top-k">Latent additions (K) <input id="rag-top-k" type="number" min="1" max="100" step="1" value={topK} onChange={event => setTopK(event.target.value)} aria-invalid={!validK} /></label>
       <span>Score ≥ {percent(options.minScore, 1)} · depth {options.maxDepth}</span>
       <button className="primary-button" disabled={!observed.length || !inference.ready || inference.running || !validK} onClick={() => inference.run(observed, options, contexts)}>{inference.running ? <LoaderCircle size={15} className="spin" /> : <ListPlus size={15} />}{inference.running ? 'Generating…' : current ? 'Regenerate' : 'Generate combinations'}</button>
       {inference.running && <button className="text-button" onClick={inference.clear}>Cancel</button>}
@@ -61,12 +62,13 @@ export function RagCombinations({ data, observed, contexts, options, onClose }: 
     {output && !inference.running && <>
       <div className="rag-export"><span>{output.combinations.length} of {output.availableCombinations} qualifying combinations</span><button className="secondary-button" disabled={!hasQueries} onClick={() => copy(output.combinations.map(row => row.query).join('\n'), 'all')}>{copied === 'all' ? <Check size={14} /> : <Copy size={14} />}{copied === 'all' ? 'Copied' : 'Copy queries'}</button><button className="secondary-button" onClick={download}><Download size={14} />JSON</button></div>
       {output.truncated && <p className="rag-notice" role="status">Partial search: the exploration safety limit was reached. These are the best combinations found, not a guaranteed global top K. Lower depth or use fewer observations and run again.</p>}
-      {!hasQueries ? <p className="rag-notice">No additional symptoms meet the current threshold and depth. Adjust discovery settings and try again.</p> : <ol className="rag-list">{output.combinations.map(row => <li key={row.key}>
+      {!hasQueries ? <p className="rag-notice">No additional symptoms meet the current threshold and depth. You can still request diagnostic candidates for the original symptoms below.</p> : <ol className="rag-list">{output.combinations.map(row => <li key={row.key}>
         <div className="rag-query"><span>{row.symptoms.slice(0, -1).map(displaySymptom).join(' + ')} <b>+ {displaySymptom(row.addedSymptom)}</b></span><strong>{percent(row.score, 2)}</strong></div>
         <div className="rag-row-footer"><small>Added {displaySymptom(row.addedSymptom)} · depth {row.depth}</small><button className="text-button" aria-label={'Copy combination ' + row.rank} onClick={() => copy(row.query, row.key)}>{copied === row.key ? <Check size={13} /> : <Copy size={13} />}{copied === row.key ? 'Copied' : 'Copy query'}</button></div>
       </li>)}</ol>}
     </>}
     {copyError && <p className="rag-notice" role="alert">Clipboard access was unavailable. Download the JSON or select and copy a row.</p>}
-    <p className="rag-footnote">Uses the cached dataset and gender filter. Graph candidate limits do not apply. Queries are prepared locally; nothing is sent to a RAG service.</p>
+    <DiagnosisPanel observed={observed} contexts={contexts} contextFrequency={data.context_frequency} combinations={inference.running ? null : output} />
+    <p className="rag-footnote">Combinations use the cached dataset and gender filter. Graph candidate limits do not apply. A diagnosis request is sent only when you press Request diagnostic candidates.</p>
   </dialog>;
 }

@@ -32,6 +32,7 @@ jobs:
       - name: Build production frontend
         env:
           VITE_RULES_API_URL: ${{ vars.VITE_RULES_API_URL }}
+          VITE_DIAGNOSIS_API_URL: ${{ vars.VITE_DIAGNOSIS_API_URL }}
         run: npm run build
 
       - name: Upload production build
