@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, ArrowUp, BookOpen, Check, ChevronDown, CircleHelp, Database, GitBranch, LoaderCircle, Maximize2, Minimize2, Moon, Network, Plus, RotateCcw, SlidersHorizontal, Square, Sun, X } from 'lucide-react';
+import { Activity, ArrowUp, BookOpen, Check, ChevronDown, ChevronUp, CircleHelp, Database, GitBranch, LoaderCircle, Maximize2, Minimize2, Moon, Network, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, SlidersHorizontal, Square, Sun, X } from 'lucide-react';
 import { useAnalytics } from './hooks/useAnalytics';
 import { DiagnosisResults } from './components/results/DiagnosisResults';
 import { useRules } from './hooks/useRules';
@@ -33,6 +33,8 @@ export default function App() {
   const [latentK, setLatentK] = useState('10');
   const [diagnosisK, setDiagnosisK] = useState('3');
   const [glass, setGlass] = useState(false);
+  const [inputsCollapsed, setInputsCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const validLimits = Number.isInteger(Number(latentK)) && Number(latentK) >= 1 && Number(latentK) <= 100 && Number.isSafeInteger(Number(diagnosisK)) && Number(diagnosisK) > 0;
   const busy = inference.running || analytics.running;
   const { theme, toggleTheme } = useTheme();
@@ -55,7 +57,12 @@ export default function App() {
   const [graphExpanded, setGraphExpanded] = useState(false);
   const [comparisonSession, setComparisonSession] = useState(0);
   const settings = useRef<HTMLDetailsElement>(null);
-  const comparisonDetails = useRef<HTMLDetailsElement>(null);
+  const [activeTab, setActiveTab] = useState<'clinical' | 'comparison'>('clinical');
+  const [comparisonVisited, setComparisonVisited] = useState(false);
+  function switchTab(tab: 'clinical' | 'comparison') {
+    setActiveTab(tab); setGraphExpanded(false);
+    if (tab === 'comparison') setComparisonVisited(true);
+  }
   const thread = useRef<HTMLDivElement>(null);
   const evidencePane = useRef<HTMLDivElement>(null);
   const diagnosisPane = useRef<HTMLElement>(null);
@@ -89,6 +96,7 @@ export default function App() {
     analytics.reset(); inference.clear(); setObserved([]); setSelected(null); setVisibleDepth(options.maxDepth); setViewScore(0);
     setContexts([]);
     setRemovedSymptoms(0);
+    setInputsCollapsed(false);
     setComparisonSession(value => value + 1);
     thread.current?.scrollTo({ top: 0 });
     evidencePane.current?.scrollTo({ top: 0 }); diagnosisPane.current?.scrollTo({ top: 0 });
@@ -128,15 +136,15 @@ export default function App() {
     setContexts(next);
   }
   const status = rules.loading ? 'Loading dataset…' : rules.error ? rules.data ? 'Using cached dataset' : 'Dataset offline' : inference.ready ? 'Dataset in memory' : 'Preparing engine…';
-  return <div className={'console-shell analytics-shell' + (glass ? ' glass-tiles' : '') + (graphExpanded ? ' graph-expanded' : '')}>
+  return <div className={'console-shell analytics-shell' + (glass ? ' glass-tiles' : '') + (sidebarCollapsed ? ' sidebar-collapsed' : '') + (graphExpanded ? ' graph-expanded' : '')}>
     <a className="skip-link" href="#workspace">Skip to explorer</a>
-    <aside className="console-sidebar" aria-label="Workspace navigation">
+    <aside id="workspace-sidebar" className="console-sidebar" aria-label="Workspace navigation" hidden={sidebarCollapsed}>
       <a className="brand" href="./" aria-label="CuraMate home"><Activity size={24} strokeWidth={1.8} /><strong>CuraMate</strong></a>
       <button className="new-exploration" onClick={clear}><Plus size={18} />New exploration</button>
       <div className="sidebar-navigation">
         <span className="sidebar-label">Workspace</span>
-        <a href="#workspace" className="sidebar-link active"><Network size={17} />Clinical workspace</a>
-        <a href="#symptom-comparison" className="sidebar-link" onClick={() => { setGraphExpanded(false); if (comparisonDetails.current) comparisonDetails.current.open = true; }}><GitBranch size={17} />Compare symptoms</a>
+        <button className={"sidebar-link " + (activeTab === "clinical" ? "active" : "")} onClick={() => switchTab("clinical")}><Network size={17} />Clinical workspace</button>
+        <button className={"sidebar-link " + (activeTab === "comparison" ? "active" : "")} onClick={() => switchTab("comparison")}><GitBranch size={17} />Compare symptoms</button>
         <button className="sidebar-link" onClick={() => setMethodology(true)}><BookOpen size={17} />How it works</button>
       </div>
       <div className="sidebar-bottom">
@@ -151,7 +159,7 @@ export default function App() {
     </aside>
     <main id="workspace" className="console-main">
       <header className="console-header">
-        <div className="console-title"><span className="mobile-brand"><Activity size={19} />CuraMate<span>/</span></span><h1>Clinical workspace</h1><span className="research-label">Research</span></div>
+        <div className="console-title"><button type="button" className="icon-button sidebar-toggle" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>{sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}</button><span className="mobile-brand"><Activity size={19} />CuraMate<span>/</span></span><h1>{activeTab === "clinical" ? "Clinical workspace" : "Symptom comparison"}</h1><span className="research-label">Research</span></div>
         <div className="header-actions"><button className="rag-trigger glass-toggle" aria-pressed={glass} onClick={() => setGlass(value => !value)} title="Toggle glass tiles">Glass {glass ? 'on' : 'off'}</button><span className={'dataset-status ' + (rules.error ? 'offline' : '')}><span className="status-dot" />{status}</span>
           <button className="rag-trigger" disabled={!rules.data || rules.loading || busy} onClick={() => setRagOpen(true)} title="Generate complete symptom combinations for RAG queries">Top K <span>combinations</span></button>
           <button className="reload-dataset" disabled={rules.loading || busy} onClick={rules.reload} title="Make one new API request and replace the cached dataset" aria-label="Reload dataset"><RotateCcw size={15} className={rules.loading ? 'spin' : ''} /><span>Reload dataset</span></button>
@@ -160,7 +168,16 @@ export default function App() {
           <button className="icon-button" aria-label="About the inference model" title="About the inference model" onClick={() => setMethodology(true)}><CircleHelp size={18} /></button>
         </div>
       </header>
-      <div className="conversation-scroll" ref={thread}>
+      <div className="workspace-tabs" role="tablist" aria-label="Workspace views">
+        {(['clinical', 'comparison'] as const).map(tab => <button key={tab} id={tab + '-tab'} role="tab" aria-selected={activeTab === tab} aria-controls={tab + '-panel'} tabIndex={activeTab === tab ? 0 : -1} onClick={() => switchTab(tab)} onKeyDown={event => {
+          if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+            event.preventDefault();
+            const next = event.key === 'Home' ? 'clinical' : event.key === 'End' ? 'comparison' : tab === 'clinical' ? 'comparison' : 'clinical';
+            switchTab(next); document.getElementById(next + '-tab')?.focus();
+          }
+        }}>{tab === 'clinical' ? <Network size={17} /> : <GitBranch size={17} />}{tab === 'clinical' ? 'Clinical workspace' : 'Compare symptoms'}</button>)}
+      </div>
+      <div className="conversation-scroll" ref={thread} hidden={activeTab !== 'clinical'} id="clinical-panel" role="tabpanel" aria-labelledby="clinical-tab">
         <div className="conversation">
           {rules.error && <div className="connection-banner" role="alert"><CircleHelp size={18} /><div><strong>{rules.configurationMissing ? 'Connect your dataset to begin' : rules.data ? 'Reload failed — using the previous dataset' : 'The dataset could not be loaded'}</strong><p>{rules.configurationMissing ? <>Set <code>VITE_RULES_API_URL</code>, then restart or rebuild the app.</> : rules.error}</p></div>{!rules.configurationMissing && <button className="secondary-button" disabled={rules.loading} onClick={rules.retry}><RotateCcw size={14} />Retry</button>}</div>}
           <div className="analytics-grid"><div className="analytics-left" ref={evidencePane} role="region" aria-label="Symptom evidence, independently scrollable" tabIndex={0}>
@@ -187,7 +204,6 @@ export default function App() {
             {graphExpanded && selectedCandidate && <div className="expanded-evidence"><strong>{displaySymptom(selectedCandidate.symptom)}</strong><span>Score {percent(selectedCandidate.inferenceScore)} · {selectedCandidate.bestEvidence.antecedents.map(token => isContextToken(token) ? displayContext(token) : displaySymptom(token)).join(' + ')} → {displaySymptom(selectedCandidate.symptom)}</span><span>Direct confidence {percent(selectedCandidate.bestEvidence.rule.confidence, 1)} · {formatNumber(selectedCandidate.bestEvidence.rule.occurrences)} / {formatNumber(selectedCandidate.bestEvidence.rule.antecedent_occurrences)} records</span></div>}
           </section>
           {dirty && <div className="stale-results" role="status"><span>Your observations or settings have changed.</span><button className="text-button" onClick={run} disabled={!observed.length || busy || rules.loading}>Analyze again <RotateCcw size={13} /></button></div>}
-          <details className="secondary-analysis" ref={comparisonDetails}><summary>Compare symptom likelihoods</summary>{visibleData && symptomTrie && <SymptomComparison key={comparisonSession} data={visibleData} trie={symptomTrie} observed={observed} />}</details>
           {result && <InferenceResults result={result} selected={selected} onSelect={selectSymptom} visibleDepth={visibleDepth} />}
           <details className="secondary-analysis"><summary>Explore all symptom paths</summary>{result?.paths && <SymptomPaths key={JSON.stringify([result.observed, result.options])} result={result.paths} observed={result.observed} />}</details>
           {(selectedCandidate || selectedObserved) && <NodeDetails candidate={selectedCandidate} observed={selectedObserved} frequency={selectedObserved ? rules.data?.symptom_frequency[selectedObserved] : undefined} onSelect={selectSymptom} onClose={() => setSelected(null)} />}
@@ -209,8 +225,20 @@ export default function App() {
           </aside></div>
         </div>
       </div>
-      <div className="composer-dock"><div className="composer-wrapper">
-
+      <div className="comparison-workspace" hidden={activeTab !== 'comparison'} id="comparison-panel" role="tabpanel" aria-labelledby="comparison-tab">
+        {rules.error && <div className="connection-banner" role="alert"><div><strong>{rules.data ? 'Using the previous dataset' : 'Comparison needs a dataset'}</strong><p>{rules.error}</p></div><button className="secondary-button" disabled={rules.loading} onClick={rules.retry}>Retry</button></div>}
+        {rules.loading && <p className="comparison-empty" role="status">Loading symptom catalog?</p>}
+        {comparisonVisited && visibleData && symptomTrie && <SymptomComparison key={comparisonSession} data={visibleData} trie={symptomTrie} observed={observed} />}
+      </div>
+      <div className={'composer-dock' + (inputsCollapsed ? ' inputs-collapsed' : '')} hidden={activeTab !== 'clinical'}><div className="composer-wrapper">
+        <div className="composer-collapse-bar">
+          <span>{inputsCollapsed ? `${observed.length} symptom${observed.length === 1 ? '' : 's'} selected${busy ? ' ? Analysis running' : ''}` : 'Patient inputs'}</span>
+          <button type="button" className="composer-collapse-toggle" aria-expanded={!inputsCollapsed} aria-controls="patient-input-panel" onClick={() => {
+            if (settings.current) settings.current.open = false;
+            setInputsCollapsed(value => !value);
+          }}>{inputsCollapsed ? <ChevronUp size={16} /> : <ChevronDown size={16} />}{inputsCollapsed ? 'Expand inputs' : 'Collapse inputs'}</button>
+        </div>
+        <div id="patient-input-panel" hidden={inputsCollapsed}>
         <div className="composer compact-composer">
           <div className="composer-fields"><div className="composer-symptoms">
           <div className="composer-input-heading"><span>Symptoms</span><span>{gender ? displaySymptom(gender) + ' · ' + Object.keys(visibleData?.symptom_frequency ?? {}).length + ' available' : observed.length ? observed.length + ' selected · all symptoms' : 'All symptoms'}</span></div>
@@ -236,6 +264,7 @@ export default function App() {
           </div>
           {!validLimits && <p className="gender-filter-notice" role="alert">Choose 1-100 latent combinations and a positive whole number of diagnoses.</p>}
         </div><p className="composer-notice">Analyze runs local inference, then sends symptoms and context to the diagnosis service. Requires clinician review.</p>
+        </div>
       </div></div>
     </main>
     <Methodology open={methodology} onClose={() => setMethodology(false)} />

@@ -6,21 +6,21 @@
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  --page: #182224;
-  --sidebar: #141d1f;
-  --surface: #202d30;
-  --composer: #243235;
-  --raised: #29393c;
-  --hover: #314348;
-  --graph: #1c282b;
-  --dot: #34464a;
-  --text: #ececec;
-  --muted: #b0bfc1;
-  --subtle: #92a7aa;
-  --border: #3c5155;
-  --soft-border: #304246;
-  --accent: #9bd8cd;
-  --accent-bg: #29473f;
+  --page: #101827;
+  --sidebar: #0c1321;
+  --surface: #192437;
+  --composer: #1b2940;
+  --raised: #22324a;
+  --hover: #2c4060;
+  --graph: #141f31;
+  --dot: #2a3c55;
+  --text: #edf2fc;
+  --muted: #b3c1d8;
+  --subtle: #94a7c4;
+  --border: #354964;
+  --soft-border: #293a53;
+  --accent: #8eb7ff;
+  --accent-bg: #213d65;
   --send: #f0f0f0;
   --send-text: #222;
   --warning: #e0b88b;
@@ -31,21 +31,21 @@
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --page: #edf3f3;
-  --sidebar: #e5eeee;
-  --surface: #f9fcfc;
-  --composer: #f9fcfc;
+  --page: #f3f6fc;
+  --sidebar: #eaf0fa;
+  --surface: #ffffff;
+  --composer: #ffffff;
   --raised: #fff;
-  --hover: #e5efee;
-  --graph: #f5f9f9;
-  --dot: #dce3e0;
-  --text: #233538;
-  --muted: #52696c;
-  --subtle: #607679;
-  --border: #cddcdd;
-  --soft-border: #dfe9e9;
-  --accent: #206c61;
-  --accent-bg: #e2f0e8;
+  --hover: #e8effb;
+  --graph: #f8faff;
+  --dot: #dce5f3;
+  --text: #172640;
+  --muted: #526580;
+  --subtle: #60728c;
+  --border: #ccd8eb;
+  --soft-border: #e1e8f3;
+  --accent: #285dc0;
+  --accent-bg: #e8efff;
   --send: #272727;
   --send-text: #fff;
   --warning: #8c6036;
@@ -401,3 +401,86 @@ button { color: inherit; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }.spin { animation: none !important; } }
 @media (prefers-reduced-transparency: reduce) { .glass-tiles .analytics-left { background: var(--surface); backdrop-filter: none; } }
+
+/* Dedicated views and comfortable responsive flow. */
+[hidden] { display: none !important; }
+.workspace-tabs { display: flex; gap: 8px; padding: 12px 24px; flex-shrink: 0; border-bottom: 1px solid var(--soft-border); }
+.workspace-tabs button { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 10px 18px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--muted); font-size: 14px; }
+.workspace-tabs button[aria-selected="true"] { color: var(--accent); background: var(--accent-bg); border-color: var(--border); }
+.comparison-workspace { flex: 1; min-height: 0; overflow-y: auto; padding: 28px; }
+.comparison-workspace .comparison-section { max-width: 1120px; margin: 0 auto; padding: 32px; }
+.comparison-workspace .paths-heading { flex-wrap: wrap; gap: 16px; }
+.comparison-workspace .paths-heading h2 { font-size: 24px; line-height: 1.4; }
+.comparison-workspace .paths-description { max-width: 850px; line-height: 1.8; margin-top: 16px; }
+.comparison-inputs { gap: 24px; margin: 28px 0; }
+.comparison-input { padding: 20px; }
+.comparison-input .search-dropdown { position: relative; top: auto; margin-top: 12px; box-shadow: none; }
+.comparison-input .search-field { min-height: 48px; }
+.comparison-summary { gap: 20px; }
+.analyze-button { background: var(--accent); color: var(--sidebar); }
+:root[data-theme="light"] .analyze-button { color: white; }
+@media (max-width: 850px) {
+  .analytics-shell:not(.graph-expanded) .console-main { height: auto; min-height: 100dvh; }
+  .analytics-shell:not(.graph-expanded) .conversation-scroll { flex: none; overflow: visible; order: 4; }
+  .analytics-shell .workspace-tabs { order: 1; }
+  .analytics-shell .composer-dock { order: 2; padding: 20px 16px; border-top: 0; }
+  .comparison-workspace { order: 3; overflow: visible; padding: 20px 16px; }
+  .analytics-shell .compact-composer { padding: 20px; }
+  .composer-fields, .compact-composer .context-fields { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .compact-composer .composer-actions { gap: 14px; padding-top: 18px; margin-top: 18px; }
+  .compact-composer .search-field { min-height: 48px; }
+  .compact-composer .search-dropdown { position: relative; bottom: auto; width: 100%; margin-top: 10px; }
+  .compact-composer .selected-symptoms, .compact-composer .history-chips { max-height: none; }
+  .compact-composer .symptom-chip { padding: 7px 10px; }
+  .compact-composer .analyze-button { min-height: 46px; width: 100%; }
+  .toolbar-number { min-height: 44px; gap: 8px; }
+  .toolbar-number input { min-height: 40px; }
+  .analytics-shell:not(.graph-expanded) .conversation { padding: 0 16px 24px; }
+  .analytics-shell .analytics-grid { gap: 24px; }
+  .analytics-shell .analytics-left, .analytics-shell .diagnostic-workspace { padding: 0 18px 22px; }
+  .comparison-workspace .comparison-section { padding: 22px; }
+  .graph-expanded .workspace-tabs { display: none; }
+}
+@media (max-width: 540px) {
+  .analytics-shell .console-header { flex-wrap: wrap; gap: 12px; padding: 16px; }
+  .header-actions { flex-wrap: wrap; gap: 8px; }
+  .header-actions .glass-toggle { display: none; }
+  .workspace-tabs { padding: 12px 16px; gap: 6px; }
+  .workspace-tabs button { flex: 1; padding: 10px 8px; font-size: 12px; gap: 6px; }
+  .comparison-workspace .comparison-section { padding: 18px; }
+  .comparison-workspace .paths-heading h2 { font-size: 22px; }
+  .comparison-inputs { gap: 18px; }
+  .comparison-input { padding: 14px; }
+  .comparison-table { min-width: 0; }
+  .comparison-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .comparison-table tbody, .comparison-table tr { display: block; }
+  .comparison-table tr { border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .comparison-table tbody th { display: block; width: 100%; padding: 0 0 12px; font-size: 16px; overflow-wrap: anywhere; }
+  .comparison-table td { display: block; border: 0; padding: 12px 0 0; }
+  .comparison-table td::before { content: attr(data-label); display: block; color: var(--muted); font-size: 12px; margin-bottom: 7px; }
+  .comparison-table-scroll { overflow: visible; }
+  .paths-pagination { flex-wrap: wrap; gap: 12px; }
+  .secondary-button, .icon-button, .mode-toggle button { min-height: 44px; }
+  .network-heading .graph-filters { margin-left: 0; }
+  .evidence-heading { flex-wrap: wrap; gap: 6px; }
+}
+
+/* Collapse patient inputs while retaining the current observations and settings. */
+.composer-collapse-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.composer-collapse-bar>span { color: var(--muted); font-size: 12px; }
+.composer-collapse-toggle { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 12px; }
+.composer-collapse-toggle:hover { background: var(--hover); }
+.inputs-collapsed .composer-collapse-bar { margin-bottom: 0; }
+@media (max-width: 850px) {
+  .composer-collapse-toggle { min-height: 44px; }
+  .analytics-shell .composer-dock.inputs-collapsed { padding-top: 10px; padding-bottom: 10px; }
+}
+
+/* Keep the sidebar restore control available when the review columns expand. */
+.sidebar-toggle { flex-shrink: 0; width: 40px; height: 40px; }
+.sidebar-collapsed .mobile-theme, .sidebar-collapsed .mobile-new { display: inline-flex; }
+@media (max-width: 1200px) { .sidebar-toggle { display: none; } }
+.graph-expanded .sidebar-toggle { display: none; }
+
+.comparison-notice>p { margin-top: 8px; }
+.comparison-unavailable small { max-width: 280px; line-height: 1.6; }

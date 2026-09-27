@@ -7,7 +7,7 @@ export function useTheme() {
   });
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#182224' : '#edf3f3');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#101827' : '#f3f6fc');
     try { localStorage.setItem('curamate.theme', theme); } catch { /* The preference is optional. */ }
   }, [theme]);
   return { theme, toggleTheme: () => setTheme(current => current === 'dark' ? 'light' : 'dark') };

@@ -10,20 +10,20 @@ function graphStyles(theme: Theme): StylesheetJson {
   const dark = theme === 'dark';
   return [
   { selector: 'node.symptom', style: {
-    shape: 'ellipse', width: 64, height: 64, 'background-color': dark ? '#263934' : '#e8f5ef',
-    'border-width': 1.7, 'border-color': dark ? '#779c88' : '#528773', label: 'data(label)', color: dark ? '#e1f5e9' : '#214d3a',
+    shape: 'ellipse', width: 64, height: 64, 'background-color': dark ? '#253654' : '#e8efff',
+    'border-width': 1.7, 'border-color': dark ? '#809bc7' : '#607fbc', label: 'data(label)', color: dark ? '#e1ebff' : '#244579',
     'font-family': 'DM Sans Variable, sans-serif', 'font-size': 14, 'font-weight': 500,
     'text-wrap': 'wrap', 'text-max-width': '168px', 'text-valign': 'bottom', 'text-halign': 'center', 'text-margin-y': 12,
     'line-height': 1.6, 'overlay-opacity': 0,
   } },
-  { selector: 'node.observed', style: { width: 76, height: 76, 'background-color': dark ? '#1b6554' : '#18775f', 'border-color': dark ? '#65c8a7' : '#18775f', color: dark ? '#e4f5ee' : '#20563d', 'font-weight': 600 } },
+  { selector: 'node.observed', style: { width: 76, height: 76, 'background-color': dark ? '#285dc0' : '#285dc0', 'border-color': dark ? '#8eb7ff' : '#285dc0', color: dark ? '#e4edff' : '#234d8e', 'font-weight': 600 } },
   { selector: 'node.depth-2', style: { 'background-color': dark ? '#293746' : '#edf4ff', 'border-color': dark ? '#7fa5d8' : '#678cbb', color: dark ? '#e0edff' : '#365c90' } },
   { selector: 'node.depth-3', style: { 'background-color': dark ? '#373045' : '#f3f0fa', 'border-color': dark ? '#b19ad0' : '#9580b3', color: dark ? '#efe4ff' : '#675596' } },
   { selector: 'node.rule', style: {
     shape: 'diamond', width: 17, height: 17, 'background-color': dark ? '#25292c' : '#fff', 'border-color': dark ? '#b0bfba' : '#648377',
     'border-width': 1.8, label: 'data(label)', color: dark ? '#d1dbd6' : '#456456', 'font-family': 'DM Sans Variable, sans-serif',
     'font-size': 12, 'text-valign': 'top', 'text-margin-y': -6, 'overlay-opacity': 0, 'text-wrap': 'wrap', 'text-max-width': '200px',
-    'text-background-color': dark ? '#1c282b' : '#f5f9f9', 'text-background-opacity': 1, 'text-background-padding': '3px',
+    'text-background-color': dark ? '#141f31' : '#f8faff', 'text-background-opacity': 1, 'text-background-padding': '3px',
   } },
   { selector: 'edge', style: {
     width: 1.8, 'line-color': dark ? '#869a91' : '#718a80', 'target-arrow-color': dark ? '#869a91' : '#718a80', 'curve-style': 'bezier',
@@ -32,14 +32,14 @@ function graphStyles(theme: Theme): StylesheetJson {
   { selector: 'edge.consequent', style: { 'target-arrow-shape': 'triangle' } },
   { selector: 'edge.pairwise', style: {
     label: 'data(label)', color: dark ? '#d1dbd6' : '#456456', 'font-size': 12, 'text-wrap': 'wrap', 'text-max-width': '200px',
-    'font-family': 'DM Sans Variable, sans-serif', 'text-background-color': dark ? '#1c282b' : '#f5f9f9',
+    'font-family': 'DM Sans Variable, sans-serif', 'text-background-color': dark ? '#141f31' : '#f8faff',
     'text-background-opacity': 1, 'text-background-padding': '4px', 'text-margin-y': -10,
   } },
   { selector: 'edge.secondary', style: { 'line-style': 'dashed', 'line-opacity': 1, width: 1.6 } },
-  { selector: 'edge.highlighted', style: { 'line-color': dark ? '#91e9c0' : '#138264', 'target-arrow-color': dark ? '#91e9c0' : '#138264', width: 3, 'line-opacity': 1 } },
-  { selector: 'node.highlighted', style: { 'border-color': dark ? '#91e9c0' : '#138264', 'border-width': 2.5 } },
-  { selector: 'node.focused', style: { 'border-color': dark ? '#a6f2d0' : '#087d6b', 'border-width': 3, 'underlay-color': dark ? '#538b73' : '#b8e1d8', 'underlay-opacity': .25, 'underlay-padding': 7 } },
-  { selector: 'node.hovered', style: { 'overlay-color': '#7aafa4', 'overlay-opacity': .1, 'overlay-padding': 7 } },
+  { selector: 'edge.highlighted', style: { 'line-color': dark ? '#8eb7ff' : '#285dc0', 'target-arrow-color': dark ? '#8eb7ff' : '#285dc0', width: 3, 'line-opacity': 1 } },
+  { selector: 'node.highlighted', style: { 'border-color': dark ? '#8eb7ff' : '#285dc0', 'border-width': 2.5 } },
+  { selector: 'node.focused', style: { 'border-color': dark ? '#b1ceff' : '#285dc0', 'border-width': 3, 'underlay-color': dark ? '#5382ca' : '#b8cef2', 'underlay-opacity': .25, 'underlay-padding': 7 } },
+  { selector: 'node.hovered', style: { 'overlay-color': '#7a9fcf', 'overlay-opacity': .1, 'overlay-padding': 7 } },
   ];
 }
 interface Props {
