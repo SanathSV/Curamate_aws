@@ -484,3 +484,9 @@ button { color: inherit; }
 
 .comparison-notice>p { margin-top: 8px; }
 .comparison-unavailable small { max-width: 280px; line-height: 1.6; }
+
+.validation-workspace { flex: 1; min-height: 0; overflow-y: auto; }
+.workspace-tabs { overflow-x: auto; }
+.workspace-tabs button { flex-shrink: 0; }
+@media (max-width: 850px) { .validation-workspace { order: 3; overflow: visible; } }
+@media (max-width: 540px) { .workspace-tabs button { flex: 0 0 auto; } }

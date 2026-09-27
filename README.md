@@ -395,3 +395,12 @@ The Top K combinations dialog remains available for advanced query exports and i
 On desktop, the symptom-evidence and diagnostic-candidate columns scroll independently within the viewport. Each pane is keyboard-focusable, has a sticky heading, and contains its own scroll at the boundary. Analyze and New exploration reset both scroll positions; arriving results do not automatically move the clinician's reading position. The patient composer remains accessible below the panes. Mobile uses a single page scroll, and short mobile viewports allow the full layout to scroll so inputs remain reachable.
 
 Dark and light themes share a muted teal-gray palette across the workspace, graph label backgrounds, cards, and browser theme color. Reduced-motion and reduced-transparency preferences are respected. These changes affect presentation only; inference and diagnosis request behavior are unchanged.
+
+
+## Validation Lab
+
+The **Validation Lab** workspace tab provides local JSON dataset inspection, existing-rule latent generation, transformation review, batched Lambda 4 evaluation, metrics, record exploration and JSON reports. It is separate from the clinical diagnosis workflow.
+
+Set `VITE_LAMBDA4_EVALUATION_URL` in `.env.local` to the real Lambda 4 endpoint and restart Vite. Upload, inspection and generation work without this endpoint; evaluation remains disabled until configured. The lab does not call Lambda 3.
+
+See [VALIDATION_LAB.md](VALIDATION_LAB.md) for the exact request/response contract, configuration, batching and retry behavior, rank denominator assumptions, leakage controls, file inventory and implementation report.

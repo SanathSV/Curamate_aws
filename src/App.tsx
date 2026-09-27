@@ -1,5 +1,5 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, ArrowUp, BookOpen, Check, ChevronDown, ChevronUp, CircleHelp, Database, GitBranch, LoaderCircle, Maximize2, Minimize2, Moon, Network, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, SlidersHorizontal, Square, Sun, X } from 'lucide-react';
+﻿import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Activity, ArrowUp, BookOpen, Check, ChevronDown, ChevronUp, CircleHelp, Database, FlaskConical, GitBranch, LoaderCircle, Maximize2, Minimize2, Moon, Network, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, SlidersHorizontal, Square, Sun, X } from 'lucide-react';
 import { useAnalytics } from './hooks/useAnalytics';
 import { DiagnosisResults } from './components/results/DiagnosisResults';
 import { useRules } from './hooks/useRules';
@@ -26,6 +26,9 @@ import { canonicalKey, displaySymptom } from './inference/canonicalize';
 import { formatNumber, percent } from './utils/format';
 
 const EMPTY_FREQUENCY = {};
+const ValidationLab = lazy(() => import('./components/validation/ValidationLab').then(module => ({ default: module.ValidationLab })));
+const WORKSPACE_TABS = ['clinical', 'comparison', 'validation'] as const;
+type WorkspaceTab = typeof WORKSPACE_TABS[number];
 export default function App() {
   const rules = useRules();
   const inference = useInference(rules.data);
@@ -57,11 +60,13 @@ export default function App() {
   const [graphExpanded, setGraphExpanded] = useState(false);
   const [comparisonSession, setComparisonSession] = useState(0);
   const settings = useRef<HTMLDetailsElement>(null);
-  const [activeTab, setActiveTab] = useState<'clinical' | 'comparison'>('clinical');
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('clinical');
   const [comparisonVisited, setComparisonVisited] = useState(false);
-  function switchTab(tab: 'clinical' | 'comparison') {
+  const [validationVisited, setValidationVisited] = useState(false);
+  function switchTab(tab: WorkspaceTab) {
     setActiveTab(tab); setGraphExpanded(false);
     if (tab === 'comparison') setComparisonVisited(true);
+    if (tab === 'validation') setValidationVisited(true);
   }
   const thread = useRef<HTMLDivElement>(null);
   const evidencePane = useRef<HTMLDivElement>(null);
@@ -145,6 +150,7 @@ export default function App() {
         <span className="sidebar-label">Workspace</span>
         <button className={"sidebar-link " + (activeTab === "clinical" ? "active" : "")} onClick={() => switchTab("clinical")}><Network size={17} />Clinical workspace</button>
         <button className={"sidebar-link " + (activeTab === "comparison" ? "active" : "")} onClick={() => switchTab("comparison")}><GitBranch size={17} />Compare symptoms</button>
+        <button className={"sidebar-link " + (activeTab === "validation" ? "active" : "")} onClick={() => switchTab("validation")}><FlaskConical size={17} />Validation Lab</button>
         <button className="sidebar-link" onClick={() => setMethodology(true)}><BookOpen size={17} />How it works</button>
       </div>
       <div className="sidebar-bottom">
@@ -159,7 +165,7 @@ export default function App() {
     </aside>
     <main id="workspace" className="console-main">
       <header className="console-header">
-        <div className="console-title"><button type="button" className="icon-button sidebar-toggle" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>{sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}</button><span className="mobile-brand"><Activity size={19} />CuraMate<span>/</span></span><h1>{activeTab === "clinical" ? "Clinical workspace" : "Symptom comparison"}</h1><span className="research-label">Research</span></div>
+        <div className="console-title"><button type="button" className="icon-button sidebar-toggle" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>{sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}</button><span className="mobile-brand"><Activity size={19} />CuraMate<span>/</span></span><h1>{activeTab === "clinical" ? "Clinical workspace" : activeTab === "comparison" ? "Symptom comparison" : "Validation Lab"}</h1><span className="research-label">Research</span></div>
         <div className="header-actions"><button className="rag-trigger glass-toggle" aria-pressed={glass} onClick={() => setGlass(value => !value)} title="Toggle glass tiles">Glass {glass ? 'on' : 'off'}</button><span className={'dataset-status ' + (rules.error ? 'offline' : '')}><span className="status-dot" />{status}</span>
           <button className="rag-trigger" disabled={!rules.data || rules.loading || busy} onClick={() => setRagOpen(true)} title="Generate complete symptom combinations for RAG queries">Top K <span>combinations</span></button>
           <button className="reload-dataset" disabled={rules.loading || busy} onClick={rules.reload} title="Make one new API request and replace the cached dataset" aria-label="Reload dataset"><RotateCcw size={15} className={rules.loading ? 'spin' : ''} /><span>Reload dataset</span></button>
@@ -169,13 +175,13 @@ export default function App() {
         </div>
       </header>
       <div className="workspace-tabs" role="tablist" aria-label="Workspace views">
-        {(['clinical', 'comparison'] as const).map(tab => <button key={tab} id={tab + '-tab'} role="tab" aria-selected={activeTab === tab} aria-controls={tab + '-panel'} tabIndex={activeTab === tab ? 0 : -1} onClick={() => switchTab(tab)} onKeyDown={event => {
+        {WORKSPACE_TABS.map(tab => <button key={tab} id={tab + '-tab'} role="tab" aria-selected={activeTab === tab} aria-controls={tab + '-panel'} tabIndex={activeTab === tab ? 0 : -1} onClick={() => switchTab(tab)} onKeyDown={event => {
           if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
             event.preventDefault();
-            const next = event.key === 'Home' ? 'clinical' : event.key === 'End' ? 'comparison' : tab === 'clinical' ? 'comparison' : 'clinical';
+            const next = event.key === 'Home' ? WORKSPACE_TABS[0] : event.key === 'End' ? WORKSPACE_TABS[WORKSPACE_TABS.length - 1] : WORKSPACE_TABS[(WORKSPACE_TABS.indexOf(tab) + (event.key === 'ArrowRight' ? 1 : WORKSPACE_TABS.length - 1)) % WORKSPACE_TABS.length];
             switchTab(next); document.getElementById(next + '-tab')?.focus();
           }
-        }}>{tab === 'clinical' ? <Network size={17} /> : <GitBranch size={17} />}{tab === 'clinical' ? 'Clinical workspace' : 'Compare symptoms'}</button>)}
+        }}>{tab === 'clinical' ? <Network size={17} /> : tab === 'comparison' ? <GitBranch size={17} /> : <FlaskConical size={17} />}{tab === 'clinical' ? 'Clinical workspace' : tab === 'comparison' ? 'Compare symptoms' : 'Validation Lab'}</button>)}
       </div>
       <div className="conversation-scroll" ref={thread} hidden={activeTab !== 'clinical'} id="clinical-panel" role="tabpanel" aria-labelledby="clinical-tab">
         <div className="conversation">
@@ -229,6 +235,9 @@ export default function App() {
         {rules.error && <div className="connection-banner" role="alert"><div><strong>{rules.data ? 'Using the previous dataset' : 'Comparison needs a dataset'}</strong><p>{rules.error}</p></div><button className="secondary-button" disabled={rules.loading} onClick={rules.retry}>Retry</button></div>}
         {rules.loading && <p className="comparison-empty" role="status">Loading symptom catalog?</p>}
         {comparisonVisited && visibleData && symptomTrie && <SymptomComparison key={comparisonSession} data={visibleData} trie={symptomTrie} observed={observed} />}
+      </div>
+      <div className="validation-workspace" hidden={activeTab !== 'validation'} id="validation-panel" role="tabpanel" aria-labelledby="validation-tab">
+        {validationVisited && <Suspense fallback={<p className="comparison-empty" role="status">Loading Validation Lab...</p>}><ValidationLab data={rules.data} options={options} latentLimit={Number.isInteger(Number(latentK)) && Number(latentK) >= 1 && Number(latentK) <= 100 ? Number(latentK) : 10} /></Suspense>}
       </div>
       <div className={'composer-dock' + (inputsCollapsed ? ' inputs-collapsed' : '')} hidden={activeTab !== 'clinical'}><div className="composer-wrapper">
         <div className="composer-collapse-bar">

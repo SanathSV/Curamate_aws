@@ -45,6 +45,15 @@ describe('workspace tabs', () => {
     expect(screen.getByRole('button', { name: 'Remove A' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Collapse inputs' }).getAttribute('aria-expanded')).toBe('true');
   });
+  it('opens the separate Validation Lab using keyboard navigation', async () => {
+    render(createElement(App));
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Clinical workspace' }), { key: 'End' });
+    expect(await screen.findByRole('heading', { name: 'Model Validation' })).toBeTruthy();
+    expect(screen.getByRole('tabpanel').id).toBe('validation-panel');
+    expect(screen.queryByRole('combobox', { name: 'Search observed symptoms' })).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Clinical workspace' }));
+    expect(screen.getByRole('combobox', { name: 'Search observed symptoms' })).toBeTruthy();
+  });
   it('supports keyboard navigation between tabs', () => {
     render(createElement(App));
     fireEvent.keyDown(screen.getByRole('tab', { name: 'Clinical workspace' }), { key: 'ArrowRight' });
