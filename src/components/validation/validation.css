@@ -218,3 +218,9 @@
 @media (max-width: 1050px) { .lab-checkout { padding: 28px 22px; }.lab-experiment-layout { grid-template-columns: minmax(0,1fr) 290px; gap: 20px; }.lab-run-receipt { padding: 21px; }.lab-checkout .lab-steps li { padding: 10px; font-size: 11px; }.lab-layout-results { grid-template-columns: minmax(0,1fr); } }
 @media (max-width: 800px) { .lab-experiment-layout { grid-template-columns: minmax(0,1fr); }.lab-run-receipt { position: static; }.lab-pass-pair { max-width: 400px; }.lab-receipt-heading { flex-wrap: nowrap; }.lab-receipt-status { flex-basis: auto; margin: 0 0 0 auto; }.lab-checkout .lab-settings-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.lab-checkout .lab-run-receipt h2 br { display: none; }.lab-checkout .lab-run-receipt h2 { font-size: 24px; }.lab-checkout .lab-run-receipt h2 br::after { content: ' '; } }
 @media (max-width: 540px) { .lab-checkout { padding: 22px 14px 36px; gap: 20px; }.lab-checkout .lab-header h1 { font-size: 29px; }.lab-checkout .lab-steps li { flex-direction: row; font-size: 10px; gap: 6px; }.lab-checkout .lab-config-section, .lab-checkout .lab-json-guide { padding: 22px 18px; }.lab-checkout .lab-upload { padding: 28px 18px; }.lab-checkout .lab-settings-grid { gap: 14px; grid-template-columns: minmax(0,1fr); }.lab-checkout-form>.lab-stat-grid { padding: 16px 18px; }.lab-checkout-form>.lab-inspect-disclosure { padding: 0 18px 18px; }.lab-processing-panel { padding: 32px 22px; }.lab-processing-panel h2 { font-size: 23px; }.lab-checkout .lab-results-complete { padding: 24px 18px; }.lab-checkout .lab-file-label { padding: 20px 18px; }.lab-run-receipt h2 { line-height: 1.4; } }
+
+/* The ring and counter share one animation clock. */
+.lab-processing-ring .lab-ring-fill { transition: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .lab-layout-results .lab-results-lead { animation: lab-checkout-enter 420ms cubic-bezier(.2,.8,.2,1) both; }
+}

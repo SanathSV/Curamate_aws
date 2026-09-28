@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 @theme { --font-sans: 'DM Sans Variable', sans-serif; }
 :root {
   color-scheme: dark;
@@ -518,3 +518,14 @@ button { color: inherit; }
 }
 .graph-expanded .sidebar-backdrop, .graph-expanded .sidebar-toggle { display: none; }
 .analytics-shell.graph-expanded .console-sidebar { display: none; }
+
+/* Minimal navigation controls at the top edge. */
+.sidebar-top-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.sidebar-top-row .brand { padding: 0; gap: 6px; }
+.sidebar-top-row .brand strong { font-size: 18px; }
+.sidebar-collapse-control { display: grid; place-items: center; flex-shrink: 0; width: 30px; height: 32px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); }
+.sidebar-collapse-control:hover { background: var(--surface); color: var(--text); }
+.sidebar-collapse-control:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.analytics-shell:not(.sidebar-collapsed) .sidebar-toggle { display: none; }
+.sidebar-collapsed .sidebar-toggle { width: 36px; height: 36px; padding: 0; border: 0; background: transparent; }
+.sidebar-collapsed .sidebar-toggle:hover { background: var(--surface); }

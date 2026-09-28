@@ -57,7 +57,7 @@ describe('Validation Lab orchestration',()=>{
     expect(FakeWorker.current.posted?.latentLimit).toBe(7);
     expect(screen.getByRole('progressbar').getAttribute('value')).toBe('0');
     act(()=>FakeWorker.current.finish());
-    await screen.findByText('VALIDATION COMPLETE');
+    await screen.findByText('VALIDATION COMPLETE', {}, { timeout: 2500 });
     expect(evaluateBatch).toHaveBeenCalledTimes(1);
     expect(vi.mocked(evaluateBatch).mock.calls[0][0].diagnosis_top_k).toBe(8);
     expect(screen.getByRole('button',{name:'Download Evaluation Report'})).toBeTruthy();

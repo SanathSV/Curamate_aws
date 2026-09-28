@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, ArrowUp, BookOpen, Check, ChevronDown, ChevronUp, CircleHelp, Database, FlaskConical, GitBranch, LoaderCircle, Maximize2, Minimize2, Moon, Network, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, SlidersHorizontal, Square, Sun, X } from 'lucide-react';
+import { Activity, ArrowUp, BookOpen, Check, ChevronDown, ChevronUp, CircleHelp, Database, FlaskConical, GitBranch, LoaderCircle, Maximize2, Minimize2, Moon, Network, ChevronsLeft, ChevronsRight, Plus, RotateCcw, SlidersHorizontal, Square, Sun, X } from 'lucide-react';
 import { CollapsibleRegion } from './components/CollapsibleRegion';
 import { useAnalytics } from './hooks/useAnalytics';
 import { DiagnosisResults } from './components/results/DiagnosisResults';
@@ -28,7 +28,8 @@ import { formatNumber, percent } from './utils/format';
 
 const EMPTY_FREQUENCY = {};
 const ValidationLab = lazy(() => import('./components/validation/ValidationLab').then(module => ({ default: module.ValidationLab })));
-const WORKSPACE_TABS = ['clinical', 'comparison', 'validation'] as const;
+const ResearchFlow = lazy(() => import('./components/ResearchFlow').then(module => ({ default: module.ResearchFlow })));
+const WORKSPACE_TABS = ['clinical', 'comparison', 'research', 'validation'] as const;
 type WorkspaceTab = typeof WORKSPACE_TABS[number];
 export default function App() {
   const rules = useRules();
@@ -149,12 +150,16 @@ export default function App() {
     <a className="skip-link" href="#workspace">Skip to explorer</a>
     {!sidebarCollapsed && <button type="button" className="sidebar-backdrop" aria-label="Close sidebar" onClick={closeSidebar} />}
     <aside id="workspace-sidebar" className="console-sidebar" aria-label="Workspace navigation" aria-hidden={sidebarCollapsed} inert={sidebarCollapsed} onKeyDown={event => { if (event.key === 'Escape') closeSidebar(); }}>
-      <a className="brand" href="./" aria-label="CuraMate home"><Activity size={24} strokeWidth={1.8} /><strong>CuraMate</strong></a>
+      <div className="sidebar-top-row">
+        <a className="brand" href="./" aria-label="CuraMate home"><Activity size={20} strokeWidth={1.8} /><strong>CuraMate</strong></a>
+        <button type="button" className="sidebar-collapse-control" aria-label="Collapse sidebar" title="Collapse sidebar" aria-expanded="true" aria-controls="workspace-sidebar" onClick={closeSidebar}><ChevronsLeft size={18} /></button>
+      </div>
       <button className="new-exploration" onClick={clear}><Plus size={18} />New exploration</button>
       <div className="sidebar-navigation">
         <span className="sidebar-label">Workspace</span>
         <button className={"sidebar-link " + (activeTab === "clinical" ? "active" : "")} onClick={() => switchTab("clinical")}><Network size={17} />Clinical workspace</button>
         <button className={"sidebar-link " + (activeTab === "comparison" ? "active" : "")} onClick={() => switchTab("comparison")}><GitBranch size={17} />Compare symptoms</button>
+        <button className={"sidebar-link " + (activeTab === "research" ? "active" : "")} onClick={() => switchTab("research")}><BookOpen size={17} />Thought Process</button>
         <button className={"sidebar-link " + (activeTab === "validation" ? "active" : "")} onClick={() => switchTab("validation")}><FlaskConical size={17} />Validation Lab</button>
         <button className="sidebar-link" onClick={() => setMethodology(true)}><BookOpen size={17} />How it works</button>
       </div>
@@ -170,7 +175,7 @@ export default function App() {
     </aside>
     <main id="workspace" className="console-main">
       <header className="console-header">
-        <div className="console-title"><button type="button" ref={sidebarToggle} className="icon-button sidebar-toggle" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>{sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}</button><span className="mobile-brand"><Activity size={19} />CuraMate<span>/</span></span><h1>{activeTab === "clinical" ? "Clinical workspace" : activeTab === "comparison" ? "Symptom comparison" : "Validation Lab"}</h1><span className="research-label">Research</span></div>
+        <div className="console-title"><button type="button" ref={sidebarToggle} className="icon-button sidebar-toggle" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Toggle navigation'} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" onClick={() => setSidebarCollapsed(value => !value)}><ChevronsRight size={20} /></button><span className="mobile-brand"><Activity size={19} />CuraMate<span>/</span></span><h1>{activeTab === "clinical" ? "Clinical workspace" : activeTab === "comparison" ? "Symptom comparison" : activeTab === "research" ? "Thought Process" : "Validation Lab"}</h1><span className="research-label">Research</span></div>
         <div className="header-actions"><button className="rag-trigger glass-toggle" aria-pressed={glass} onClick={() => setGlass(value => !value)} title="Toggle glass tiles">Glass {glass ? 'on' : 'off'}</button><span className={'dataset-status ' + (rules.error ? 'offline' : '')}><span className="status-dot" />{status}</span>
           <button className="rag-trigger" disabled={!rules.data || rules.loading || busy} onClick={() => setRagOpen(true)} title="Generate complete symptom combinations for RAG queries">Top K <span>combinations</span></button>
           <button className="reload-dataset" disabled={rules.loading || busy} onClick={rules.reload} title="Make one new API request and replace the cached dataset" aria-label="Reload dataset"><RotateCcw size={15} className={rules.loading ? 'spin' : ''} /><span>Reload dataset</span></button>
@@ -186,7 +191,7 @@ export default function App() {
             const next = event.key === 'Home' ? WORKSPACE_TABS[0] : event.key === 'End' ? WORKSPACE_TABS[WORKSPACE_TABS.length - 1] : WORKSPACE_TABS[(WORKSPACE_TABS.indexOf(tab) + (event.key === 'ArrowRight' ? 1 : WORKSPACE_TABS.length - 1)) % WORKSPACE_TABS.length];
             switchTab(next); document.getElementById(next + '-tab')?.focus();
           }
-        }}>{tab === 'clinical' ? <Network size={17} /> : tab === 'comparison' ? <GitBranch size={17} /> : <FlaskConical size={17} />}{tab === 'clinical' ? 'Clinical workspace' : tab === 'comparison' ? 'Compare symptoms' : 'Validation Lab'}</button>)}
+        }}>{tab === 'clinical' ? <Network size={17} /> : tab === 'comparison' ? <GitBranch size={17} /> : tab === 'research' ? <BookOpen size={17} /> : <FlaskConical size={17} />}{tab === 'clinical' ? 'Clinical workspace' : tab === 'comparison' ? 'Compare symptoms' : tab === 'research' ? 'Thought Process' : 'Validation Lab'}</button>)}
       </div>
       <div className="conversation-scroll" ref={thread} hidden={activeTab !== 'clinical'} id="clinical-panel" role="tabpanel" aria-labelledby="clinical-tab">
         <div className="conversation">
@@ -240,6 +245,9 @@ export default function App() {
         {rules.error && <div className="connection-banner" role="alert"><div><strong>{rules.data ? 'Using the previous dataset' : 'Comparison needs a dataset'}</strong><p>{rules.error}</p></div><button className="secondary-button" disabled={rules.loading} onClick={rules.retry}>Retry</button></div>}
         {rules.loading && <p className="comparison-empty" role="status">Loading symptom catalog?</p>}
         {comparisonVisited && visibleData && symptomTrie && <SymptomComparison key={comparisonSession} data={visibleData} trie={symptomTrie} observed={observed} />}
+      </div>
+      <div className="research-workspace" hidden={activeTab !== 'research'} id="research-panel" role="tabpanel" aria-labelledby="research-tab">
+        {activeTab === 'research' && <Suspense fallback={<p className="comparison-empty" role="status">Loading research flow...</p>}><ResearchFlow /></Suspense>}
       </div>
       <div className="validation-workspace" hidden={activeTab !== 'validation'} id="validation-panel" role="tabpanel" aria-labelledby="validation-tab">
         {validationVisited && <Suspense fallback={<p className="comparison-empty" role="status">Loading Validation Lab...</p>}><ValidationLab data={rules.data} options={options} latentLimit={Number.isInteger(Number(latentK)) && Number(latentK) >= 1 && Number(latentK) <= 100 ? Number(latentK) : 10} /></Suspense>}

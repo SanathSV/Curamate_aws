@@ -15,6 +15,22 @@ vi.mock('./components/graph/SymptomGraph', () => ({ SymptomGraph: () => null }))
 vi.mock('./components/Methodology', () => ({ Methodology: () => null }));
 afterEach(cleanup);
 describe('workspace tabs', () => {
+  it('opens the explanatory research flow and preserves clinical inputs', async () => {
+    render(createElement(App));
+    const input = screen.getByRole('combobox', { name: 'Search observed symptoms' });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'a' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Thought Process' }));
+    expect(await screen.findByRole('heading', { name: 'Follow the evidence' })).toBeTruthy();
+    expect(screen.getByRole('tabpanel').id).toBe('research-panel');
+    expect(screen.queryByRole('button', { name: 'Analyze' })).toBeNull();
+    expect(screen.getAllByRole('button').filter(button => /^\d\. /.test(button.getAttribute('aria-label') ?? ''))).toHaveLength(9);
+    fireEvent.click(screen.getByRole('button', { name: '8. JEV re-ranking' }));
+    expect(screen.getByRole('heading', { name: 'JEV re-ranking' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Clinical workspace' }));
+    expect(screen.getByRole('button', { name: 'Remove A' })).toBeTruthy();
+  });
   it('collapses and restores navigation without losing symptom selections', () => {
     render(createElement(App));
     const input = screen.getByRole('combobox', { name: 'Search observed symptoms' });
