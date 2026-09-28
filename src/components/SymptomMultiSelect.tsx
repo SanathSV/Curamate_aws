@@ -1,12 +1,16 @@
 import { useId, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { Check, Plus, Search, X } from 'lucide-react';
+import { Check, MessageCircle, Plus, Search, X } from 'lucide-react';
 import type { Trie } from '../trie/Trie';
 import type { SymptomFrequency } from '../types/rules';
 import { displaySymptom } from '../inference/canonicalize';
 import { compactNumber } from '../utils/format';
 
+import { SymptomDescriptionInput } from './SymptomDescriptionInput';
+import './symptom-input.css';
+
 interface Props {
+  allowDescription?: boolean;
   trie: Trie | null;
   frequency: Record<string, SymptomFrequency>;
   selected: string[];
@@ -16,7 +20,8 @@ interface Props {
   placeholder?: string;
   excludedSymptoms?: string[];
 }
-export function SymptomMultiSelect({ trie, frequency, selected, onChange, disabled, label = 'observed symptoms', placeholder = 'Search and add observed symptoms…', excludedSymptoms }: Props) {
+export function SymptomMultiSelect({ trie, frequency, selected, onChange, disabled, label = 'observed symptoms', placeholder = 'Search and add observed symptoms…', excludedSymptoms, allowDescription = false }: Props) {
+  const [mode, setMode] = useState<'manual' | 'describe'>('manual');
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -49,6 +54,11 @@ export function SymptomMultiSelect({ trie, frequency, selected, onChange, disabl
         <button type="button" aria-label={'Remove ' + displaySymptom(symptom)} disabled={disabled} onClick={() => onChange(selected.filter(item => item !== symptom))}><X size={13} /></button>
       </span>)}
     </div>}
+    {allowDescription && <div className="symptom-input-modes" role="group" aria-label="How to add symptoms">
+      <button type="button" aria-pressed={mode === 'manual'} onClick={() => { setMode('manual'); setOpen(false); }}><Search size={14} />Search symptoms</button>
+      <button type="button" aria-pressed={mode === 'describe'} onClick={() => { setMode('describe'); setOpen(false); }}><MessageCircle size={14} />Describe a symptom<span className="symptom-mode-new">AI</span></button>
+    </div>}
+    {mode === 'describe' ? <SymptomDescriptionInput frequency={frequency} excluded={excluded} disabled={disabled} onSelect={select} onManual={() => { setMode('manual'); setOpen(false); }} /> : <>
     <div className={'search-field ' + (open ? 'is-focused' : '')}>
       <Search size={17} aria-hidden="true" />
       <input id={id} ref={input} value={query} placeholder={placeholder}
@@ -70,6 +80,7 @@ export function SymptomMultiSelect({ trie, frequency, selected, onChange, disabl
       </ul>
       <div className="search-hint"><span>↑ ↓ to navigate</span><span>↵ to select</span></div>
     </div>}
+    </>}
     <span className="sr-only" role="status">{selected.length} {label} selected</span>
   </div>;
 }

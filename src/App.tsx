@@ -1,5 +1,6 @@
-﻿import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, ArrowUp, BookOpen, Check, ChevronDown, ChevronUp, CircleHelp, Database, FlaskConical, GitBranch, LoaderCircle, Maximize2, Minimize2, Moon, Network, PanelLeftClose, PanelLeftOpen, Plus, RotateCcw, SlidersHorizontal, Square, Sun, X } from 'lucide-react';
+import { CollapsibleRegion } from './components/CollapsibleRegion';
 import { useAnalytics } from './hooks/useAnalytics';
 import { DiagnosisResults } from './components/results/DiagnosisResults';
 import { useRules } from './hooks/useRules';
@@ -37,7 +38,9 @@ export default function App() {
   const [diagnosisK, setDiagnosisK] = useState('3');
   const [glass, setGlass] = useState(false);
   const [inputsCollapsed, setInputsCollapsed] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.matchMedia?.('(max-width: 1200px)').matches ?? false);
+  const sidebarToggle = useRef<HTMLButtonElement>(null);
+  function closeSidebar() { setSidebarCollapsed(true); sidebarToggle.current?.focus(); }
   const validLimits = Number.isInteger(Number(latentK)) && Number(latentK) >= 1 && Number(latentK) <= 100 && Number.isSafeInteger(Number(diagnosisK)) && Number(diagnosisK) > 0;
   const busy = inference.running || analytics.running;
   const { theme, toggleTheme } = useTheme();
@@ -65,6 +68,7 @@ export default function App() {
   const [validationVisited, setValidationVisited] = useState(false);
   function switchTab(tab: WorkspaceTab) {
     setActiveTab(tab); setGraphExpanded(false);
+    if (window.matchMedia?.('(max-width: 1200px)').matches) closeSidebar();
     if (tab === 'comparison') setComparisonVisited(true);
     if (tab === 'validation') setValidationVisited(true);
   }
@@ -143,7 +147,8 @@ export default function App() {
   const status = rules.loading ? 'Loading dataset…' : rules.error ? rules.data ? 'Using cached dataset' : 'Dataset offline' : inference.ready ? 'Dataset in memory' : 'Preparing engine…';
   return <div className={'console-shell analytics-shell' + (glass ? ' glass-tiles' : '') + (sidebarCollapsed ? ' sidebar-collapsed' : '') + (graphExpanded ? ' graph-expanded' : '')}>
     <a className="skip-link" href="#workspace">Skip to explorer</a>
-    <aside id="workspace-sidebar" className="console-sidebar" aria-label="Workspace navigation" hidden={sidebarCollapsed}>
+    {!sidebarCollapsed && <button type="button" className="sidebar-backdrop" aria-label="Close sidebar" onClick={closeSidebar} />}
+    <aside id="workspace-sidebar" className="console-sidebar" aria-label="Workspace navigation" aria-hidden={sidebarCollapsed} inert={sidebarCollapsed} onKeyDown={event => { if (event.key === 'Escape') closeSidebar(); }}>
       <a className="brand" href="./" aria-label="CuraMate home"><Activity size={24} strokeWidth={1.8} /><strong>CuraMate</strong></a>
       <button className="new-exploration" onClick={clear}><Plus size={18} />New exploration</button>
       <div className="sidebar-navigation">
@@ -165,7 +170,7 @@ export default function App() {
     </aside>
     <main id="workspace" className="console-main">
       <header className="console-header">
-        <div className="console-title"><button type="button" className="icon-button sidebar-toggle" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>{sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}</button><span className="mobile-brand"><Activity size={19} />CuraMate<span>/</span></span><h1>{activeTab === "clinical" ? "Clinical workspace" : activeTab === "comparison" ? "Symptom comparison" : "Validation Lab"}</h1><span className="research-label">Research</span></div>
+        <div className="console-title"><button type="button" ref={sidebarToggle} className="icon-button sidebar-toggle" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>{sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}</button><span className="mobile-brand"><Activity size={19} />CuraMate<span>/</span></span><h1>{activeTab === "clinical" ? "Clinical workspace" : activeTab === "comparison" ? "Symptom comparison" : "Validation Lab"}</h1><span className="research-label">Research</span></div>
         <div className="header-actions"><button className="rag-trigger glass-toggle" aria-pressed={glass} onClick={() => setGlass(value => !value)} title="Toggle glass tiles">Glass {glass ? 'on' : 'off'}</button><span className={'dataset-status ' + (rules.error ? 'offline' : '')}><span className="status-dot" />{status}</span>
           <button className="rag-trigger" disabled={!rules.data || rules.loading || busy} onClick={() => setRagOpen(true)} title="Generate complete symptom combinations for RAG queries">Top K <span>combinations</span></button>
           <button className="reload-dataset" disabled={rules.loading || busy} onClick={rules.reload} title="Make one new API request and replace the cached dataset" aria-label="Reload dataset"><RotateCcw size={15} className={rules.loading ? 'spin' : ''} /><span>Reload dataset</span></button>
@@ -247,11 +252,11 @@ export default function App() {
             setInputsCollapsed(value => !value);
           }}>{inputsCollapsed ? <ChevronUp size={16} /> : <ChevronDown size={16} />}{inputsCollapsed ? 'Expand inputs' : 'Collapse inputs'}</button>
         </div>
-        <div id="patient-input-panel" hidden={inputsCollapsed}>
+        <CollapsibleRegion id="patient-input-panel" collapsed={inputsCollapsed}>
         <div className="composer compact-composer">
           <div className="composer-fields"><div className="composer-symptoms">
           <div className="composer-input-heading"><span>Symptoms</span><span>{gender ? displaySymptom(gender) + ' · ' + Object.keys(visibleData?.symptom_frequency ?? {}).length + ' available' : observed.length ? observed.length + ' selected · all symptoms' : 'All symptoms'}</span></div>
-          {rules.loading ? <div className="composer-loading"><LoaderCircle className="spin" size={18} /><span>Loading available symptoms…</span></div> : <SymptomMultiSelect trie={symptomTrie} frequency={visibleData?.symptom_frequency ?? EMPTY_FREQUENCY} selected={observed} onChange={changeObserved} disabled={!rules.data || busy} />}
+          {rules.loading ? <div className="composer-loading"><LoaderCircle className="spin" size={18} /><span>Loading available symptoms…</span></div> : <SymptomMultiSelect allowDescription trie={symptomTrie} frequency={visibleData?.symptom_frequency ?? EMPTY_FREQUENCY} selected={observed} onChange={changeObserved} disabled={!rules.data || busy} />}
           </div>
           {rules.data?.context_frequency && <PatientContext frequency={rules.data.context_frequency} contexts={contexts} onChange={changeContexts} disabled={rules.loading || busy} combined={options.associationMode !== 'pairwise'} />}
           </div>
@@ -273,7 +278,7 @@ export default function App() {
           </div>
           {!validLimits && <p className="gender-filter-notice" role="alert">Choose 1-100 latent combinations and a positive whole number of diagnoses.</p>}
         </div><p className="composer-notice">Analyze runs local inference, then sends symptoms and context to the diagnosis service. Requires clinician review.</p>
-        </div>
+        </CollapsibleRegion>
       </div></div>
     </main>
     <Methodology open={methodology} onClose={() => setMethodology(false)} />

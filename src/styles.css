@@ -490,3 +490,31 @@ button { color: inherit; }
 .workspace-tabs button { flex-shrink: 0; }
 @media (max-width: 850px) { .validation-workspace { order: 3; overflow: visible; } }
 @media (max-width: 540px) { .workspace-tabs button { flex: 0 0 auto; } }
+
+/* Use the available workspace width for clinical entry. */
+.analytics-shell .composer-wrapper { width: 100%; max-width: none; }
+.analytics-shell .composer-dock { padding-left: 22px; padding-right: 22px; }
+.composer-fields { grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr); gap: 24px; }
+.compact-composer .symptom-selector { padding: 10px 12px; border-radius: 12px; }
+.compact-composer .search-field { min-height: 48px; padding: 10px 2px; }
+.compact-composer .search-field input { font-size: 15px; }
+.compact-composer .symptom-chat-compose { min-height: 52px; }
+.compact-composer .symptom-chat-compose input { font-size: 15px; padding-top: 12px; padding-bottom: 12px; }
+.sidebar-toggle { display: inline-flex; border: 1px solid var(--border); background: var(--surface); border-radius: 9px; }
+.sidebar-backdrop { display: none; }
+@media (max-width: 1200px) {
+  .analytics-shell .console-sidebar { display: flex; position: fixed; top: 72px; bottom: 0; left: 0; height: calc(100dvh - 72px); width: 220px; z-index: 41; overflow-y: auto; box-shadow: 12px 0 35px #0002; }
+  .sidebar-backdrop { display: block; position: fixed; inset: 72px 0 0; z-index: 40; border: 0; border-radius: 0; background: #0005; cursor: default; }
+  .sidebar-backdrop:active { transform: none; }
+}
+@media (max-width: 900px) {
+  .composer-fields { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .analytics-shell .composer-dock { padding-left: 16px; padding-right: 16px; }
+}
+@media (max-width: 730px) {
+  .analytics-shell .console-sidebar { top: 62px; height: calc(100dvh - 62px); }
+  .sidebar-backdrop { top: 62px; }
+  .compact-composer .symptom-chat-compose input { font-size: 16px; }
+}
+.graph-expanded .sidebar-backdrop, .graph-expanded .sidebar-toggle { display: none; }
+.analytics-shell.graph-expanded .console-sidebar { display: none; }

@@ -1,0 +1,56 @@
+/* A shared, restrained motion language. Data and progress values always remain real. */
+:root { --motion-fast: 140ms; --motion-normal: 240ms; --motion-slow: 360ms; --motion-ease: cubic-bezier(.22, 1, .36, 1); }
+.motion-collapse { display: grid; grid-template-rows: 1fr; opacity: 1; visibility: visible; }
+.motion-collapse-content { min-height: 0; }
+.motion-collapse.is-collapsed { grid-template-rows: 0fr; opacity: 0; visibility: hidden; }
+.motion-collapse.is-collapsed>.motion-collapse-content, .motion-collapse.is-moving>.motion-collapse-content { overflow: hidden; }
+.analytics-shell.sidebar-collapsed .console-sidebar { width: 0; padding-left: 0; padding-right: 0; opacity: 0; visibility: hidden; pointer-events: none; }
+.analytics-shell .console-sidebar { overflow-x: clip; }
+.console-sidebar>* { flex-shrink: 0; min-width: 164px; }
+.workspace-tabs button { position: relative; }
+.workspace-tabs button::after { content: ''; position: absolute; left: 18px; right: 18px; bottom: 3px; height: 2px; border-radius: 2px; background: var(--accent); opacity: 0; transform: scaleX(.45); }
+.workspace-tabs button[aria-selected="true"]::after { opacity: .8; transform: scaleX(1); }
+@media (prefers-reduced-motion: no-preference) {
+  .motion-collapse { transition: grid-template-rows 280ms var(--motion-ease), opacity 180ms ease, visibility 0s; }
+  .motion-collapse.is-collapsed { transition: grid-template-rows 280ms var(--motion-ease), opacity 120ms ease, visibility 0s 280ms; }
+  .analytics-shell .console-sidebar { transition: width 280ms var(--motion-ease), padding 280ms var(--motion-ease), opacity 180ms ease, visibility 0s; }
+  .analytics-shell.sidebar-collapsed .console-sidebar { transition: width 280ms var(--motion-ease), padding 280ms var(--motion-ease), opacity 100ms ease, visibility 0s 280ms; }
+  .console-sidebar>* { transition: opacity 160ms ease; }
+  .sidebar-collapsed .console-sidebar>* { opacity: 0; }
+  button, .sidebar-link, summary { transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, box-shadow var(--motion-normal) ease, transform var(--motion-fast) var(--motion-ease); }
+  button:not(:disabled):active { transform: scale(.97); }
+  .workspace-tabs button::after { transition: transform var(--motion-normal) var(--motion-ease), opacity var(--motion-normal) ease; }
+  [role="tabpanel"]:not([hidden]) { animation: workspace-arrive var(--motion-normal) var(--motion-ease); }
+  .graph-expanded [role="tabpanel"] { animation: none; }
+  .console-main, .console-header, .composer-dock, .network-panel, .diagnostic-workspace, .analytics-left, .comparison-section { transition: background-color var(--motion-normal) ease, border-color var(--motion-normal) ease; }
+  .search-dropdown, .settings-popover, .node-details { animation: surface-arrive 180ms var(--motion-ease); }
+  .symptom-chip, .context-badge { animation: chip-arrive 180ms var(--motion-ease); }
+  .comparison-bar i, .lab-bar i { transform-origin: left; animation: bar-arrive 480ms var(--motion-ease); transition: width 300ms var(--motion-ease); }
+  .validation-lab>.lab-card, .validation-lab>.lab-stat-grid, .validation-lab>.lab-setup-grid, .lab-metric, .lab-before-after { animation: surface-arrive var(--motion-slow) var(--motion-ease); }
+  .lab-metric:nth-child(2) { animation-delay: 40ms; animation-fill-mode: backwards; }
+  .lab-metric:nth-child(3) { animation-delay: 80ms; animation-fill-mode: backwards; }
+  .lab-steps li, .lab-steps li>span { transition: color var(--motion-normal) ease, background-color var(--motion-normal) ease, border-color var(--motion-normal) ease; }
+  .lab-steps li.active>span { animation: chip-arrive 260ms var(--motion-ease); }
+  .lab-stat, .lab-metric, .lab-upload { transition: border-color var(--motion-normal) ease, box-shadow var(--motion-normal) ease, background-color var(--motion-normal) ease; }
+  .lab-upload.dragging { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent); }
+  .lab-progress progress::-webkit-progress-value { transition: width 300ms var(--motion-ease); }
+  .lab-progress progress::-moz-progress-bar { transition: width 300ms var(--motion-ease); }
+  dialog[open] { animation: dialog-arrive 240ms var(--motion-ease); }
+  dialog[open]::backdrop { animation: backdrop-arrive 200ms ease; }
+  details[open]>.lab-card, details[open]>section, details[open]>pre { animation: surface-arrive 220ms var(--motion-ease); }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .primary-button:hover:not(:disabled), .analyze-button:hover:not(:disabled), .new-exploration:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 5px 16px color-mix(in srgb, var(--accent) 15%, transparent); }
+  .lab-stat:hover, .lab-metric:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); box-shadow: 0 6px 20px #0000000a; }
+  .icon-button:hover:not(:disabled)>svg { transform: translateY(-1px); }
+  .icon-button>svg { transition: transform var(--motion-fast) var(--motion-ease); }
+}
+@keyframes workspace-arrive { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes surface-arrive { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes chip-arrive { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes bar-arrive { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes dialog-arrive { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes backdrop-arrive { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

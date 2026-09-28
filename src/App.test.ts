@@ -15,6 +15,21 @@ vi.mock('./components/graph/SymptomGraph', () => ({ SymptomGraph: () => null }))
 vi.mock('./components/Methodology', () => ({ Methodology: () => null }));
 afterEach(cleanup);
 describe('workspace tabs', () => {
+  it('collapses and restores navigation without losing symptom selections', () => {
+    render(createElement(App));
+    const input = screen.getByRole('combobox', { name: 'Search observed symptoms' });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'a' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+    expect(screen.queryByRole('complementary', { name: 'Workspace navigation' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Expand sidebar' }).getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(screen.getByRole('complementary', { name: 'Workspace navigation' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove A' })).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole('complementary', { name: 'Workspace navigation' }), { key: 'Escape' });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Expand sidebar' }));
+  });
   it('opens a dedicated comparison view, imports observations, and preserves selections across tabs', () => {
     render(createElement(App));
     const input = screen.getByRole('combobox', { name: 'Search observed symptoms' });

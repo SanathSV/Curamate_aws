@@ -1,0 +1,37 @@
+/* Compact symptom entry, scoped to the existing clinical picker. */
+.symptom-input-modes { display: flex; flex-wrap: wrap; gap: 3px; margin: 0 0 10px; padding: 3px; width: fit-content; max-width: 100%; border: 1px solid var(--soft-border); border-radius: 9px; background: var(--page); }
+.symptom-input-modes button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 6px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 550; transition: background .15s, color .15s; }
+.symptom-input-modes button[aria-pressed="true"] { background: var(--raised); color: var(--text); box-shadow: 0 1px 3px #0001; }
+.symptom-input-modes button:hover { color: var(--accent); }
+.symptom-mode-new { color: var(--accent); background: var(--accent-bg); border-radius: 4px; padding: 1px 4px; font-size: 9px; letter-spacing: .5px; }
+.symptom-chat { --chat-accent: var(--accent); min-width: 0; animation: symptom-chat-enter .18s ease-out both; }
+.symptom-chat-compose { display: flex; align-items: center; gap: 10px; min-height: 46px; background: var(--page); border: 1px solid var(--border); border-radius: 10px; padding: 5px 6px 5px 12px; transition: border-color .15s, box-shadow .15s; }
+.symptom-chat-compose:focus-within { border-color: var(--chat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--chat-accent) 12%, transparent); }
+.symptom-compose-icon { color: var(--accent); flex-shrink: 0; }
+.symptom-chat-compose input { min-width: 0; width: 100%; border: 0; outline: none; background: transparent; color: var(--text); font-size: 13px; padding: 8px 0; }
+.symptom-chat-compose input::placeholder { color: var(--subtle); }
+.symptom-chat-compose button { display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; border: 0; border-radius: 7px; background: var(--raised); color: var(--text); }
+.symptom-chat-compose .symptom-chat-send { background: var(--accent); color: var(--page); transition: opacity .15s, transform .15s; }
+.symptom-chat-compose .symptom-chat-send:hover:not(:disabled) { transform: translateY(-1px); }
+.symptom-chat-compose .symptom-chat-send:disabled { background: var(--raised); color: var(--subtle); cursor: default; }
+.symptom-chat-hint { color: var(--muted); font-size: 11px; line-height: 1.5; margin: 7px 0 0; }
+.symptom-chat-message { display: flex; align-items: center; gap: 7px; margin-top: 9px; color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; animation: symptom-chat-enter .18s ease-out both; }
+.symptom-chat-message svg { flex-shrink: 0; }
+.symptom-chat-message.is-success { color: var(--accent); }
+.symptom-chat-message.is-error, .symptom-chat-message.is-none { color: var(--warning); }
+.symptom-chat-message.is-none { white-space: pre-line; }
+.symptom-chat-actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 5px; }
+.symptom-chat-actions button { display: inline-flex; align-items: center; gap: 5px; background: transparent; border: 0; padding: 5px 0; color: var(--accent); font-size: 12px; }
+.symptom-confirmation { min-width: 0; margin: 12px 0 0; padding: 9px 10px 10px; border: 1px solid var(--soft-border); border-radius: 10px; background: var(--composer); animation: symptom-chat-enter .18s ease-out both; }
+.symptom-confirmation legend { padding: 0 5px; font-size: 12px; font-weight: 600; color: var(--text); }
+.symptom-confirmation-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.symptom-confirmation label { display: flex; align-items: center; gap: 7px; min-height: 34px; padding: 6px 9px; border: 1px solid var(--soft-border); border-radius: 7px; color: var(--muted); font-size: 12px; cursor: pointer; overflow-wrap: anywhere; }
+.symptom-confirmation label:has(input:checked) { border-color: var(--accent); background: var(--accent-bg); color: var(--text); }
+.symptom-confirmation input { margin: 0; accent-color: var(--chat-accent); flex-shrink: 0; }
+.symptom-confirmation label:has(input:disabled) { opacity: .55; cursor: default; }
+.symptom-confirmation button { margin-top: 10px; min-height: 34px; padding: 7px 12px; border: 0; border-radius: 7px; background: var(--accent); color: var(--page); font-size: 12px; font-weight: 600; }
+.symptom-confirmation button:disabled { opacity: .55; }
+.symptom-input-modes button:focus-visible, .symptom-chat button:focus-visible, .symptom-confirmation label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; }
+@keyframes symptom-chat-enter { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 520px) { .symptom-input-modes { width: 100%; }.symptom-input-modes button { flex: 1; min-height: 40px; padding: 7px 6px; gap: 5px; font-size: 11px; }.symptom-chat-compose button { width: 40px; height: 40px; }.symptom-confirmation label, .symptom-confirmation button { min-height: 40px; } }
+@media (prefers-reduced-motion: reduce) { .symptom-chat, .symptom-chat-message, .symptom-confirmation { animation: none; }.symptom-input-modes button, .symptom-chat-compose, .symptom-chat-compose .symptom-chat-send { transition: none; } }
